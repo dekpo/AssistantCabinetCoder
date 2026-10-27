@@ -1,0 +1,42 @@
+{
+  "name": "assistant-cabinet-coder",
+  "displayName": "Assistant Cabinet Coder",
+  "description": "Gives the VS Code chat the models of an Assistant Cabinet server.",
+  "version": "0.0.0",
+  "publisher": "assistantcabinet",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dekpo/AssistantCabinetCoder.git"
+  },
+  "engines": {
+    "vscode": "^1.140.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "main": "./out/src/extension.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test \"out/test/**/*.test.js\"",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository",
+    "spike:build": "tsc -p spike/tsconfig.json",
+    "spike:test": "npm run spike:build && node --test \"spike/out/test/**/*.test.js\"",
+    "spike:package": "npm run spike:build && cd spike && vsce package --no-dependencies --skip-license --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "@types/vscode": "1.140.0",
+    "@vscode/vsce": "4.0.0",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}

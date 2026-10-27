@@ -1,0 +1,12 @@
+node_modules/
+out/
+spike/out/
+package-lock.json
+*.vsix
+
+# Vendored or frozen documents: never reformatted
+docs/IDE-CONTRACT.md
+docs/VIBE-CODING-PRACTICES.md
+
+# Local session prompts
+docs/SESSION/
