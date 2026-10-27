@@ -67,7 +67,7 @@ Create the folders:
 mkdir -p /c/Users/dwyol/x1a-test-workspace /c/Users/dwyol/x1a-vscode-data/User /c/Users/dwyol/x1a-vscode-ext /c/Users/dwyol/x1a-ca
 ```
 
-A text file, to be chosen by mistake later as an "authority file":
+A text file (no longer used as the wrong authority file, see Part 3 step 2; kept because the workspace needs one file):
 
 ```bash
 printf 'line one\n' > /c/Users/dwyol/x1a-test-workspace/hello.txt
@@ -184,7 +184,14 @@ printf '{\n  "assistantCabinetCoder.serverUrl": "https://127.0.0.1:8099"\n}\n' >
 ```
 
 1. Run **Test Connection**. Expected (not yet seen): headed **Cannot reach the server**, the sentence **This computer does not trust the server's certificate...**, a `Technical detail:` line, a **Select CA File** button; status bar **Cabinet: certificate**.
-2. Click **Select CA File** (or run **Assistant Cabinet Coder: Select CA File**). A file dialog opens. First pick the wrong file: `C:\Users\dwyol\x1a-test-workspace\hello.txt` (you may have to widen the file-type filter). Expected: the message **The authority file is not a certificate in PEM format...** and nothing is saved.
+2. Make a wrong file that the dialog will offer (it lists only `.pem`, `.crt` and `.cer` files, so a `.txt` file cannot be chosen; seen on 27 October 2026). Terminal: Git Bash (window 2):
+
+   ```bash
+   echo "not a certificate" > /c/Users/dwyol/x1a-ca/fake.pem
+   ```
+
+   Then click **Select CA File** (or run **Assistant Cabinet Coder: Select CA File**). A file dialog opens. Pick `C:\Users\dwyol\x1a-ca\fake.pem`. Expected: the message **The authority file is not a certificate in PEM format...** and nothing is saved.
+
 3. Run **Select CA File** again and pick `C:\Users\dwyol\x1a-ca\ca.pem`. Expected: **The authority file was set.**
 4. Run **Test Connection**. Expected (not yet seen): **Connected: 3 models available**; status bar **Cabinet: connected**. (If the stub still wants a key it does not here: this run has no `--key`.)
 
@@ -218,7 +225,8 @@ printf '{\n  "assistantCabinetCoder.serverUrl": "http://192.168.1.83:8090"\n}\n'
 **You start with:** Part 4 done.
 **You leave with:** nothing left behind, and the proof that your real profile never saw the extension.
 
-1. In the test window, Extensions view, click **Assistant Cabinet Coder**, then **Uninstall**. Write whether VS Code asks for a reload. Then close the test window.
+1. In the test window, Extensions view, click **Assistant Cabinet Coder**, then **Uninstall**. Write whether VS Code asks for a reload.
+2. **Close the test window completely**, the one whose title contains `x1a-test-workspace`; keep your normal window. Wait ten seconds. Every check below must run **after** this: while the window is open the profile's files are locked (a "Device or resource busy" message from `grep` or `rm` means the window is still open: close it and run that command again; lesson 6).
 
 The key must not be in any file of the test profile (VS Code keeps it in its encrypted secret storage):
 
@@ -265,3 +273,11 @@ Expected: no output.
 Walked by the agent: the `.vsix` builds (15 files, 26 kilobytes, nothing but the compiled sources, the licence, the README and the manifest); the compiled adapter was run against a fake `vscode` module and the stub in `--key` mode (activation, the status bar going to key needed, Test Connection with the key-needed and the connected reports, Set API Key, Clear API Key, the manage menu, the log lines); the stub's HTTPS mode and every transport rule (timeouts, cancellation, authority file re-read at each request, refusal of a file with a private key) are unit tests with a throw-away authority; the manifest, the language guard, the no-leak guard, the no-network and no-risk guard and the drift guard are tests.
 
 Only you can walk: everything in the VS Code window (the trust prompt, install, the Command Palette entries, the status bar, the dialogs and their buttons, the file dialog, the input box with hidden characters, uninstall) and the answer of the tower. Not walked by anyone: automatic discovery on a real installation, macOS, remote windows.
+
+## Run record
+
+- **Date and VS Code version:** 27 October 2026, VS Code 1.143.1 stable, separate profile (signed out), folder trusted. The hash of the real user settings file was `b5e63f154111b39306f93738036196fe6ebea0ae5d296599f1110affdfff23a2` before and after.
+- **Matched:** Part 0 (no update waiting, package of 26 469 bytes, port 8099 free). Part 1: install from VSIX, the six palette entries, the status bar at start-up (unreachable), all as written. Part 2: every dialog text as written (surface off with the exact administrator sentence, version mismatch, connected with the three model lines and the tool-calling note, cannot reach the server with `ECONNREFUSED`), the key-needed dialog with its **Set API Key** button, the hidden input, the saved and removed messages, and the status-bar text after each step (the owner confirmed these in words, without screenshots). Part 3: the certificate dialog with its **Select CA File** button and `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, a refused file (not a certificate, nothing saved), the authority file accepted, then connected over HTTPS. Part 4: the tower answered `/health`, then the surface-off sentence; the status bar menu with its five entries; the output channel held only time, call, status, duration and code (27 lines, no sentence, no key, no model name). The real user settings file was unchanged.
+- **Deviated (each is a finding about the test first, fixed above):** (1) Part 3 step 2 could not be played: the Select CA File dialog lists only `.pem`, `.crt` and `.cer` files, so the `.txt` file could not be chosen. The step now uses a `fake.pem` with wrong content, was replayed and gave the expected message (lesson 5). (2) Part 5 was run with the test window still open, so its checks were not valid and `rm` was blocked on locked files; the step now closes the window first and says how to know (lesson 6); the commands were repeated after closing.
+- **Not shown:** whether **Uninstall** was clicked and whether VS Code asked for a reload (not answered); that an uninstall leaves nothing behind (the extensions folder was deleted by the first `rm` before it could be read); a complete search for the key in the profile (the repeated `grep` found nothing, but ran on a data folder that the first `rm` had already emptied of its unlocked files; the files that stayed were the locked ones, among them the secret-storage database `state.vscdb`). Not walked by anyone: automatic discovery on a real installation, macOS, remote windows, a server answering with the editor surface on (the tower's is off until the server's Lot 15b).
+- **Side note:** `assistantcabinet.cabinet-spike-0.0.1` is still in the normal profile's extensions folder. It is the probe installed there by mistake during Lot X0 (lesson 2), already marked obsolete in `.obsolete`; VS Code removes it when the normal window next starts. The extension of this lot was never in the normal profile.

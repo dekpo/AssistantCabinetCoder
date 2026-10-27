@@ -25,3 +25,15 @@ One numbered entry per mistake already made, written the moment it is found: wha
 27 October 2026, found by the no-risk guard on its first run in Lot X1a. A comment in `src/transport.ts` said "Never `rejectUnauthorized: false`", and the guard that forbids that option anywhere in `src/` failed on the comment.
 
 **Rule:** a comment that explains a forbidden construct describes the rule in other words (for example "certificate checking is never turned off") instead of quoting the forbidden text. The same applies to the other patterns of the guard (`eval`, `fetch`, `console`, process spawning, file writing).
+
+## 5. A test step assumed a file dialog that the extension had filtered
+
+27 October 2026, found while playing Part 3 of `docs/human-tests/X1a-connection.md`. The step told the owner to pick a `.txt` file in the Select CA File dialog ("you may have to widen the filter"). The dialog offers only `.pem`, `.crt` and `.cer` files and has no all-files choice, so the step could not be played.
+
+**Rule:** a step that picks a file in a dialog the extension opens uses a file that the dialog lists, and the agent reads the dialog filters in the code before writing the step (lesson 2 again: describe only what the screen shows). To test a refused file, give it an accepted extension and wrong content.
+
+## 6. A clean-up step was run while the test window was still open
+
+27 October 2026, found while playing Part 5 of `docs/human-tests/X1a-connection.md`. The checks (`grep` for the key, `ls` of the extensions folder) and the `rm` ran with the test window still open: ten VS Code processes held the profile, `grep` could not read three files, `rm` removed only the files that were not locked, and the answer about the extensions folder (which still held the extension) could not be read as "uninstall left something behind". The first `rm` also changed the folders before the checks were repeated, so the repeated checks were weaker.
+
+**Rule:** a clean-up part starts with a step that closes the test window and says how to know it is closed (a "Device or resource busy" message means it is not); no check or deletion is run before that, and a check is never run after a deletion started. A deviation of this kind is recorded in the run record as "not shown" for what it hid.
