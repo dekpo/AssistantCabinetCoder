@@ -1,0 +1,90 @@
+{
+  "name": "cabinet-spike",
+  "displayName": "Cabinet Spike (throw-away probe)",
+  "description": "Throw-away probe of Lot X0. Not the product. Deleted at the end of Lot X1b.",
+  "version": "0.0.1",
+  "publisher": "assistantcabinet",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.140.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onLanguageModelChatProvider:cabinetspike"
+  ],
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "cabinetspike",
+        "displayName": "Cabinet Spike"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "spike_image",
+        "displayName": "Spike Image",
+        "modelDescription": "Returns a tiny generated test image.",
+        "userDescription": "Returns a tiny generated test image (probe).",
+        "toolReferenceName": "spikeImage",
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "cabinet-spike"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "spike_gated",
+        "displayName": "Spike Gated",
+        "modelDescription": "Returns a fixed sentence. Only offered while a context key is true.",
+        "userDescription": "Probe tool shown only while the context key cabinetSpike.gated is true.",
+        "toolReferenceName": "spikeGated",
+        "canBeReferencedInPrompt": true,
+        "when": "cabinetSpike.gated",
+        "tags": [
+          "cabinet-spike"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    ],
+    "chatAgents": [
+      {
+        "path": "./agents/spike.agent.md"
+      }
+    ],
+    "configuration": {
+      "title": "Cabinet Spike",
+      "properties": {
+        "cabinetSpike.machineSetting": {
+          "type": "string",
+          "default": "default",
+          "scope": "machine",
+          "description": "Probe setting with machine scope. A workspace settings file must not override it."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cabinetSpike.toggleGated",
+        "title": "Spike: Toggle Gated Tool"
+      },
+      {
+        "command": "cabinetSpike.logInfo",
+        "title": "Spike: Log Info"
+      }
+    ]
+  }
+}
