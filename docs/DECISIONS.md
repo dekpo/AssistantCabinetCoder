@@ -53,3 +53,7 @@ Known and accepted: `npm audit` reports two high-severity advisories in `@azure/
 ## D-008 The spike test runs in a separate VS Code profile
 
 27 October 2026, decided by the agent for Lot X0 and reported to the owner. `docs/human-tests/X0-spike.md` opens VS Code with its own `--user-data-dir` and `--extensions-dir`. Reasons: the window starts signed out of GitHub with no Copilot, which is the situation of the intended users; the owner's real settings and extensions cannot change (a hash of the real user settings file before and after is the proof). The remote-window question (h) forces the extension side with the `remote.extensionKind` override instead of building a second package, which approximates a manifest value; the run record says so.
+
+## D-009 Lot X0 verdict: Go with changes
+
+27 October 2026, decided by the owner after the run recorded in `docs/SPIKE-FINDINGS.md` (VS Code 1.143.1 stable, signed out, no Copilot plan, folder trusted). Evidence: the provider's model, the editor's own file tools, an image in a tool result, an attached or pasted image, the shipped agent and the `when` clause all worked without any sign-in. Changes to the plan: a System role is handled by the conversion; a model without tool calling is never shown in the chat; a PDF is text only, so Lot X2b stays necessary; the `model:` string of agent files is tested first in Lot X3; remote windows are retested before the release. Lot X1a starts from `feat/x0-spike`.

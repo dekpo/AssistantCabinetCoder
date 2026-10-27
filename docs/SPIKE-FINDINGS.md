@@ -2,57 +2,57 @@
 
 Filled after the owner's run of `docs/human-tests/X0-spike.md`. **These measured facts override every assumption in `docs/SESSION/COMMON-RULES.md` section 8.** Each answer records what was seen (numbers, names, kinds; never message text), the VS Code version it was seen on, and what it changes.
 
-Status: **not run yet.**
+Status: **run complete on 27 October 2026 (VS Code 1.143.1); verdict: Go with changes** (question (h) not tested).
 
 ## (a) VS Code version, channel, install of the `.vsix`, signed-out state
 
-_(to be filled after the run)_
+Seen on VS Code **1.143.1**, channel **stable** (1.142.0 was the installed version before a pending update was applied; see lesson 1). Test window: separate profile, signed out; the welcome dialog offers **Continue without Signing In**. The workspace opens in **Restricted Mode**: until the folder is trusted the `.vsix` installs but stays **disabled**, the Models button says "Trust this workspace to enable models", and the mode menu lists only Agent. After **Trust Workspace** the extension is enabled with no reload asked (to confirm). Install from VSIX works (Extensions view > ... > Install from VSIX...).
 
 ## (b) Chat without GitHub sign-in or Copilot plan: models in the picker, modes, messages
 
-_(to be filled after the run)_
+Seen, signed out, no Copilot plan, folder trusted: the chat view opens with its input box ("Build with Agent"). The extension activates only when the model list is first requested (opening the Language Models screen or the Models button), then `provideLanguageModelChatInformation` is called with `silent=true`, several times. The **Language Models** screen lists both models: Spike Plain Model (no tag) and Spike Tools Model (tags **Tools**, **Vision**), 37K context. The chat model list (provider tab **Cabinet Spike**, next to a **GitHub Copilot** tab that says "Sign in to see available models") shows **only Spike Tools Model, in Agent, Ask and Plan alike**: Spike Plain Model (no tool calling) is **not offered in any mode**, even Ask (more restrictive than the documentation). Mode menu after trust: Agent, Ask, Plan, Spike Agent, Configure Custom Agents. A banner "Set BYOK utility models - Unlocks full AI features." with a Configure button is shown. Session target label at the bottom left reads **Local**.
 
 ## (c) What Ask, Agent and Plan hand to the provider
 
-_(to be filled after the run)_
+Seen on 1.143.1, model Spike Tools Model, one word typed (`hello`), all three modes. **Every mode sends tools, and every mode first received the tool-call reply, then the closing reply** (the test expected a plain reply in Ask: the test was wrong, Ask is not tool-free). Per mode: **Ask** 3 messages, tools=20; **Agent** 3 messages, tools=52; **Plan** 3 messages, tools=21 (adds `runSubagent`). Role sequence of the first request: **System, User, User**; the second request (after the tool call) adds Assistant [text:0, toolCall] and User [toolResult[text:124]], 5 messages. **A System role arrives at runtime** (`LanguageModelChatMessageRole[role]` prints `System`) although `@types/vscode` 1.140.0 declares only `User = 1` and `Assistant = 2`: the conversion of Lot X1b must handle a third role. Characters of the first (System) message: Ask 15661, Agent 17909, Plan 18893; the two User messages: 827 chars (environment and context), then 136 (Ask, Plan) or 676 (Agent). `toolMode=Auto` in all. `modelOptions` keys: `_capturingTokenCorrelationId`, `_otelTraceContext`, `_telemetryTurn`, `_enableThinking`, `_conversationId` (none is a sampling parameter). No extra title or summary request was seen: exactly 2 requests per turn. The editor ran the tool call without a confirmation and returned a 124-character text result. The Plan turn shows a **Proceed from Plan** row (Start Implementation, Start with Autopilot, Open in Editor).
 
 ## (d) Pasted images and attachments (image, text file, selection, `#file`, PDF)
 
-_(to be filled after the run)_
+Seen in Ask with Spike Tools Model. All turns were typed in **one chat** (the history of earlier turns is replayed in every request, images included: the request grew 3, 7, 11, 15, 19, 21 messages), so each attachment is read from the user message it created. Baseline user message of an Ask turn: 134 to 136 characters of text (context) plus the typed word. **Pasted image: the first try (a Win+Shift+S capture, probably not yet in the clipboard) showed a placeholder icon and reached the provider as text only. The repeat (copy of `pic.png` from the editor, Ctrl+V in the chat) showed the picture and arrived as `[text:14, data:image/png:155b, text:149]`: one `image/png` data part, **155 bytes (the editor re-encoded the 93-byte original)**, same wrapper texts as an attached image.** **Attached `pic.png` (93 bytes): one user message `[text:14, data:image/png:93b, text:149]`, i.e. exactly one data part, mime `image/png`, 93 bytes, with a short text before it and a longer text after it.** **Attached `hello.txt`: text only, 292 characters** in the user message, no data part (content is inlined as text with wrapper text). **Selection of line 2 (shown in the chat as `#file:hello.txt:2-2`): text only, 900 characters** (wrapper plus context, no data part). **Attached `doc.pdf` (583 bytes): text only, 266 characters, no data part; the chat showed the PDF pill and no error or warning** (the editor does not send the PDF bytes to the provider). The separate `#file:hello.txt` reference turn was folded into the selection turn by the editor (same chip), so it is not measured separately: to repeat if it matters.
 
 ## (e) The image inside a tool result
 
-_(to be filled after the run)_
+Seen in Agent with Spike Tools Model: `spike_image` was offered, called by the probe, run by the editor with **no confirmation box**, and the next request carried the image **inside the tool result part**: user message `[toolResult[data:image/png:93b, text:239]]`, i.e. one `LanguageModelDataPart` of mime `image/png`, 93 bytes, plus a 239-character text part added by the editor. The chat showed "Completed 2 steps" and the closing answer.
 
 ## (f) The static custom agent: listed, tools respected, model used, exact model string
 
-_(to be filled after the run)_
+Seen on 1.143.1, stable, signed out, sideloaded `.vsix`: **`chatAgents` works.** Spike Agent is listed in the mode menu (file icon, tooltip taken from its `description`) and under Agent Customizations > Agents with source "Extension: assistantcabinet.cabinet-spike" and the path of the file inside the installed extension folder. **Its `tools: ["read"]` is respected and is a group name**: a turn made with it received **9 tools** (get_errors, copilot_getNotebookSummary, read_file, read_notebook_cell_output, session_store_sql, view_image, get_task_output, terminal_last_command, terminal_selection) instead of 52. Note: `file_search`, `grep_search` and `list_dir` belong to the `search` group, not to `read`. The Configure Tools panel shows the `read` group ticked (8 selected, 9 once the gated tool appeared). **An agent with no `model` used the selected model** (request `model=spike-tools`; the chat shows the model name under the answer). The picker shows the model as **`Spike Tools Model`** on a provider tab **`Cabinet Spike`** (the vendor's `displayName`), with the model's `tooltip` as detail and "Max context 37K". The qualified string a `model:` field needs (for example with the provider in parentheses) was **not measured**: Lot X3 must test it before writing `model:` into agent files.
 
 ## (g) Workspace settings against a `machine`-scoped setting
 
-_(to be filled after the run)_
+Seen: the workspace file `.vscode/settings.json` of the trusted test folder contained `cabinetSpike.machineSetting = "from-workspace"`. The probe's `inspect()` printed `effective="default" user=undefined workspace=undefined workspaceFolder=undefined` (twice): **the `machine` scope ignores the workspace value completely**; it is not even reported as a workspace value. The Settings editor, Workspace tab, searched for `cabinetSpike`, listed none of our settings (only unrelated chat settings matched).
 
 ## (h) Remote windows: on which side the extension runs
 
-_(to be filled after the run)_
+**Not tested.** The only WSL distribution on the owner's machine was `docker-desktop` (Docker's internal one, not a usable Linux), and no SSH host was used. The probe declared `extensionKind: ["ui"]` and ran on the Windows side (`extensionKind=UI`, `platform=win32`, `remoteName=none`). Lot X1a keeps `["ui"]` (the key and the local network live on that side) and the README says remote windows are untested; to repeat with a real Ubuntu or an SSH host before the release (Lot X4).
 
 ## (i) Tool names in Agent, and whether the editor's file and search tools reach a provider's models
 
-_(to be filled after the run)_
+Seen signed out, no Copilot plan: **the editor's own tools ARE offered to the provider's model**, so Lot X2a does not stop on this. Ask (20 tools): fetch_webpage, file_search, grep_search, get_errors, copilot_getNotebookSummary, github_repo, github_text_search, list_dir, memory, read_file, read_notebook_cell_output, session_store_sql, view_image, vscode_askQuestions, vscode_listCodeUsages, get_task_output, get_terminal_output, terminal_last_command, terminal_selection, testFailure. Plan (21): exactly the Ask set plus `runSubagent`. Agent (52) adds to the Ask set: create_directory, create_file, create_new_jupyter_notebook, create_new_workspace, edit_notebook_file, get_vscode_api, insert_edit_into_file, install_extension, replace_string_in_file, resolve_memory_file_uri, run_notebook_cell, run_vscode_command, run_in_terminal, send_to_terminal, kill_terminal, create_and_run_task, manage_todo_list, vscode_renameSymbol, vscode_searchExtensions_internal, setup_tools_createNewWorkspace, runSubagent, the browser tools (open_browser_page, read_page, screenshot_page, navigate_page, click_element, drag_element, hover_element, type_in_page, handle_dialog, run_playwright_code), and **`spike_image`** (our contributed tool, name unchanged). `vscode.lm.tools` holds 77 names. The file read tool is named **`read_file`**; search tools are `file_search`, `grep_search`, `list_dir`. An agent file's `tools: ["read"]` is a group name, still to measure in Part 4.
 
 ## (j) Telemetry-related settings and chat features the guide must tell users to review
 
-_(to be filled after the run)_
+Read from the 1.143.1 bundle (the same five names as in 1.142.0): `telemetry.telemetryLevel`, `telemetry.enableCrashReporter`, `telemetry.enableTelemetry`, `telemetry.feedback.enabled`, `telemetry.captureContent`. Chat: `chat.disableAIFeatures`, `chat.agent.enabled`, `chat.agent.maxRequests`, `chat.planAgent.defaultModel`, `chat.tools.global.autoApprove`, `chat.tools.terminal.autoApprove`, `chat.tools.edits.autoApprove`, `chat.agent.networkFilter`. Seen in the fresh signed-out profile: **`vscode.env.isTelemetryEnabled` is `true`** (printed at every activation) and the editor's own **Telemetry** output channel was filling with events (machine id, session id, version). So the guide must tell users to review `telemetry.telemetryLevel` and the four other names. The extension itself sends nothing. The values typed in the Settings editor were not collected (the step was unclear to the owner); the guide lists names, so they are not needed.
 
 ## (k) A `when` clause on a contributed tool
 
-_(to be filled after the run)_
+Seen: with the key **false** the Agent turn received 52 tools without `spike_gated` (and with `spike_image`); after **Spike: Toggle Gated Tool** (key true, confirmed by the probe log and the editor message) the next Agent turn received **53 tools, `spike_gated` included**, and the Configure Tools panel listed **spikeGated** ("Probe tool shown only while the context key cabinetSpike.gated is true.") next to spikeImage. **So the `when` clause hides the tool from the model's list while false.** It does **not** hide it from `vscode.lm.tools`: both spike tools were listed there from the first request, key false, so an extension must not rely on `lm.tools` for that. The tools panel before the toggle was not captured; the model's list is the evidence.
 
 ## Decision (the owner alone writes it)
 
-**Verdict:** _(Go / Go with changes / Stop)_
+**Verdict: Go with changes** (owner, 27 October 2026).
 
-_(If "Go with changes": what changes. If "Stop": why.)_
+What changes: (1) a **System** role arrives at runtime and must be handled by the conversion (Lot X1b); (2) a model that does not report tool calling is **not offered in the chat at all**, in any mode, so the guide and `Test Connection` say so; (3) a PDF reaches the provider as text only, without its content: the document tool of Lot X2b is needed; (4) the string of a `model:` field in agent files is not measured and is tested first in Lot X3; (5) remote windows (question (h)) are retested with a real Linux distribution or an SSH host before the release (Lot X4). The detail is in the section "Consequences for the next lots".
 
 ### Outcomes that change the plan (written in advance)
 
@@ -61,6 +61,15 @@ _(If "Go with changes": what changes. If "Stop": why.)_
 - `chatAgents` does not work in a sideloaded `.vsix`: Lot X3 keeps only the sync command.
 - A `when` clause does not hide a tool: Lot X2b registers the tool always and answers with a clear message when the feature is off.
 - The editor's file tools are not offered to a provider's models: **Lot X2a stops** and the owner decides.
+
+## Consequences for the next lots
+
+- **X1a:** `engines.vscode` stays `^1.140.0` (D-007; measured only on 1.143.1, so a lower minimum is untested). `extensionKind: ["ui"]`. In Restricted Mode the whole chat is disabled by VS Code, so `untrustedWorkspaces: "limited"` only keeps the commands working. `Test Connection` tells the user that a model that does not report tool calling is not offered in the chat picker (seen: not in Ask, Agent or Plan).
+- **X1b:** (1) a **System** role arrives at runtime, but `@types/vscode` declares only User and Assistant: convert it as a system message and test it; (2) `provideLanguageModelChatInformation` is called many times at start (6 calls in 1 second): answer from a cache; (3) **every mode sends tools**, so a model without tool calling is never usable in the chat; (4) the history, images included, is replayed in every request; (5) an image arrives as one `image/png` data part (the editor may re-encode it), a text file, a selection and a PDF arrive as **text only** (the PDF content is not sent: Lot X2b is needed); (6) a tool result may hold a data part plus a text part; (7) `modelOptions` holds only private `_...` keys, no sampling parameter; (8) 2 requests per turn, no hidden title or summary request; (9) the provider tab shows the vendor `displayName`.
+- **X2a:** the editor's own file tools (`read_file`, `file_search`, `grep_search`, `list_dir`, `create_file`, `replace_string_in_file`, `run_in_terminal`...) **are offered** to the provider's models without sign-in, so the lot does not stop. The editor already has a `view_image` tool: the lot adds `cabinet_view_image` only for what that tool does not give (a model without vision described by the server).
+- **X2b:** a `when` clause on a tool contribution **does** keep the tool out of the model's list while the key is false (use it for the feature flags), but not out of `vscode.lm.tools`.
+- **X3:** `contributes.chatAgents` with `path` works in a sideloaded stable `.vsix` (do not add `name` or `description` there, they are deprecated); `tools` takes **group names** (`read`, `search`, `edit`, `execute`, `web`, `agent`, `browser`, `todo`, `vscode`, `new`) and the `read` group means 9 tools, not `file_search`; an agent without `model` uses the selected model; the string for a `model:` field is **not measured**: test it first.
+- **All lots:** the human tests use a separate profile, check for a pending VS Code update, trust the folder, and name the buttons as seen (lessons 1 and 2).
 
 ## Pre-run evidence (read in the installed VS Code, not yet seen working)
 

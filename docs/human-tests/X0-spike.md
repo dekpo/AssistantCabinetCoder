@@ -12,7 +12,9 @@ Follows `docs/HUMAN-TESTS-PROTOCOL.md`. Every command is Git Bash. Expectations 
 - Where an on-screen label may differ from the one written here, write the label you really see in brackets in your answer.
 - **Left out on purpose:** the server, the key, the real provider (later lots); the Copilot features themselves.
 
-## Part 0: prepare (Git Bash, about 5 minutes)
+## Part 0: prepare (about 5 minutes)
+
+**Terminal: Git Bash** (the commands of this part are typed in Git Bash only).
 
 **You start with:** a closed VS Code (the test window is a separate one; your normal window may stay open), Git Bash, the repository on branch `feat/x0-spike`.
 **You leave with:** a test folder with four files, the probe package checked, and a hash of your real user settings noted.
@@ -30,6 +32,14 @@ grep -h '"quality"' "$(dirname "$(dirname "$(which code)")")"/*/resources/app/pr
 ```
 
 Expected: two identical lines `"quality": "stable"` (one per installed version folder). If you see `insider`, write it down: it is a finding.
+
+No VS Code update may be waiting (see lesson 1 in `docs/LESSONS.md`; a waiting update makes the test window refuse to open):
+
+```bash
+tasklist | grep -i CodeSetup
+```
+
+Expected: no output. If a `CodeSetup...` line appears, close every VS Code window, wait until `tasklist | grep -i CodeSetup` prints nothing, then run `code --version` again (it now shows the new version) and go on.
 
 Proof that your real settings are untouched (the "before"). Note the line it prints:
 
@@ -85,6 +95,8 @@ Expected: `hello.txt` (29 bytes), `pic.png` (93 bytes), `doc.pdf` (about 580 byt
 
 ## Part 1: sign-in, install, models, modes (about 10 minutes) [questions (a) and (b)]
 
+**Terminal: Git Bash** for the commands; the other steps are clicks in the VS Code test window.
+
 **You start with:** Part 0 done.
 **You leave with:** the probe installed in the test window, and a list of what the chat offers without any sign-in.
 
@@ -96,15 +108,16 @@ code --user-data-dir "$(cygpath -w /c/Users/dwyol/x0-vscode-data)" --extensions-
 
 In that window, in this order:
 
-1. If a box asks whether you trust the authors of the folder, click **Yes, I trust the authors** (without trust, VS Code ignores workspace settings and question (g) would be meaningless). Close any welcome page. If you are offered to sign in, to turn on settings sync or to set up Copilot, **refuse**.
+1. The welcome dialog offers **Continue without Signing In**: click it (never a sign-in button), then close the welcome page. The folder opens in **Restricted Mode** (grey banner, blue **Restricted Mode** button at the bottom left): in that mode the probe stays disabled and the chat refuses every model, so click **Manage** in the banner (or the blue button) and then **Trust Workspace** (without trust, VS Code also ignores workspace settings and question (g) would be meaningless). If you are offered to turn on settings sync or to set up Copilot, **refuse**.
 2. **Signed-out check.** Click the **Accounts** icon (a person, bottom of the left bar). Expected: no GitHub account is listed and the menu offers to sign in (for example "Sign in with GitHub to use ..."). If a GitHub account is listed, click it, then **Sign Out**, and write that down. Note what the status bar and the chat view say about Copilot.
-3. Open the Extensions view (the four-squares icon, or Ctrl+Shift+X). Click the **...** at the top right of that view (**Views and More Actions...**), then **Install from VSIX...**, pick `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder\spike\cabinet-spike-0.0.1.vsix`, click **Install**.
+3. **Make sure this is the test window (lesson 2).** Open the Extensions view (Ctrl+Shift+X). In the test window the list of installed extensions is **empty** (no "Claude Code", no "Live Server"). If you see your own extensions, you are in your normal window: close nothing, go back to the window that opened from the `code --user-data-dir ...` command and use that one. Then, in the test window:
+4. Open the Extensions view (the four-squares icon, or Ctrl+Shift+X). Click the **...** at the top right of that view (**Views and More Actions...**), then **Install from VSIX...**, pick `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder\spike\cabinet-spike-0.0.1.vsix`, click **Install**.
    Expected: "Cabinet Spike (throw-away probe)" appears in the installed list. Write down whether VS Code asks for **Reload** / **Restart Extensions** and what you did. Do **not** run any Spike command yet.
-4. Open the chat view (Ctrl+Alt+I, or the chat icon in the title bar). Write down what it shows: the chat input, or a "sign in / set up" screen with no input.
-5. **Model picker.** Click the model name at the bottom of the chat box. Write down **every entry exactly as written**. Expected (not yet seen): **Spike Tools Model** and **Spike Plain Model** (with the vendor in some form).
+5. Open the chat view (Ctrl+Alt+I, or the chat icon in the title bar). Write down what it shows: the chat input, or a "sign in / set up" screen with no input.
+6. **Model list.** The model button is the second button under the input box (it reads **Models** until a model is chosen, then the model name). Its list has one tab per provider: **GitHub Copilot** (with a **Sign in** button) and a **+**. Seen on 1.143.1: the probe is woken only when the model list is first requested, so open the **+** (it opens the **Language Models** screen listing both spike models), close it, then open the model button again: a **Cabinet Spike** tab lists the models. Write down every entry exactly as written.
    - If neither shows up: click **Manage Models...** (or run **Chat: Manage Language Models** from Ctrl+Shift+P), write what you see, then run **Spike: Log Info** from Ctrl+Shift+P and look at the picker again. Write which of these made the models appear.
-6. **Modes.** The chat box has a mode picker with **Ask**, **Agent**, **Plan** (labels may differ). Find the **Session Target** setting and set it to **Local**. For each of the three modes, open the model picker and write which of the two spike models is listed. Expected (not yet seen): **Spike Plain Model** (no tool calling) is missing in Agent and in Plan, and present in Ask.
-7. **What the picker says when something is missing:** copy the exact words of any message, tooltip or empty-state text about a missing model, a missing sign-in or a missing plan.
+7. **Modes.** The mode button is the first button under the input box (it reads **Agent**). Its menu lists Agent, Ask, Plan, the agents of extensions and **Configure Custom Agents...** (the built-in modes appear once the folder is trusted). There is no Session Target setting to change: the label **Local** at the bottom left of the box already says Local. For each of the three modes, open the model button and write which spike models are listed. Seen: only **Spike Tools Model**, in all three modes.
+8. **What the picker says when something is missing:** copy the exact words of any message, tooltip or empty-state text about a missing model, a missing sign-in or a missing plan.
 
 Print what the probe logged:
 
@@ -118,12 +131,14 @@ Expected: a first line `activate`, an `env ...` line with the VS Code version an
 
 ## Part 2: what a turn hands to the provider (about 8 minutes) [question (c)]
 
+**Terminal: Git Bash** for the commands; the other steps are clicks in the VS Code test window.
+
 **You start with:** Part 1 done, **Spike Tools Model** selected.
 **You leave with:** three requests in the log, one per mode.
 
 In each of the three turns, start with a new chat (the **New Chat** button, a plus sign at the top of the chat view), pick the mode, keep **Spike Tools Model**, type the short word shown and press Enter.
 
-1. Mode **Ask**, type `hello`. Expected (not yet seen): the reply "Spike plain answer."
+1. Mode **Ask**, type `hello`. Seen: Ask also sends tools, so the probe answers with the tool call and then "Spike closing answer." (the plain reply never appears in any mode).
 2. Mode **Agent**, type `hello`. Expected (not yet seen): the probe calls the first tool whose name contains `read`; VS Code may ask you to confirm or show an error for it; then the reply "Spike closing answer." If a confirmation box appears, click **Allow** (or **Continue**) once.
 3. Mode **Plan** (or type `/plan hello` in a new chat in Agent mode, if there is no Plan mode in the picker). Same expectation as 2. If it asks questions or loops more than three times, press Stop and say so.
 
@@ -139,13 +154,15 @@ Expected: for each turn a `request` line (messages, firstMessageChars, toolMode,
 
 ## Part 3: images and attachments (about 10 minutes) [questions (d) and (e)]
 
+**Terminal: Git Bash** for the commands; the other steps are clicks in the VS Code test window.
+
 **You start with:** Part 2 done, **Spike Tools Model** selected, mode **Ask**.
 **You leave with:** one request per attachment kind in the log.
 
-Do these seven turns **in this order**, each in a new chat, each with the text `hi` (write on paper which number was which if you change the order):
+Do these seven turns **in this order** (one chat for the Ask turns is fine: the log then shows the replayed history; a new chat for the Agent turn), each with the text `hi` (write on paper which number was which if you change the order):
 
-1. **Pasted image.** Press Win+Shift+S, drag a small rectangle on the screen, then click in the chat box, press Ctrl+V and send. Write whether the chat shows an image pill.
-2. **Attached PNG.** Click the paperclip (**Add Context...**) > **Files & Folders...** (or **Files...**) and pick `pic.png`. Send.
+1. **Pasted image.** Open `pic.png` in the editor, copy it (right click, **Copy** if offered), click in the chat box, press Ctrl+V and send. A Win+Shift+S capture can fail if the clipboard is not ready yet (seen once: placeholder icon, text only). Write whether the chat shows the picture.
+2. **Attached PNG.** Click the **+** button at the bottom left of the input box, choose the entry for files, pick `pic.png`, send. Write the name of the menu entry you clicked.
 3. **Attached text file.** Same menu, pick `hello.txt`. Send.
 4. **Selection.** Open `hello.txt` in the editor, select the second line with the mouse, go back to the chat box, type `#selection` (pick it in the list), then ` hi`. Send.
 5. **`#file` reference.** Type `#file:hello.txt` (pick it in the list), then ` hi`. Send.
@@ -166,6 +183,8 @@ Expected: `data:image/png:<bytes>b` or `data:image/jpeg:...` parts for the image
 
 ## Part 4: agent, tools, setting (about 8 minutes) [questions (f), (g), (i), (j), (k)]
 
+**Terminal: Git Bash** for the commands; the other steps are clicks in the VS Code test window.
+
 **You start with:** Part 3 done.
 **You leave with:** answers about the shipped agent, the tool names, the setting and the `when` clause.
 
@@ -173,7 +192,7 @@ Expected: `data:image/png:<bytes>b` or `data:image/jpeg:...` parts for the image
 2. **Tool names (i).** The dump of step 1 holds `options.tools names=[...]` and `lm.tools names=[...]`. Write whether the editor's own file and search tools (names like `read`, `readFile`, `search`, `edit`, `terminal`) are among `options.tools` of an Agent turn made with a spike model and **no sign-in**.
 3. **The `when` clause (k).** Run **Spike: Log Info** from Ctrl+Shift+P. In the dump, read the `lm.tools` line: is `spike_gated` listed while the key is false? Then click the tools icon in the Agent chat box (**Configure Tools...**) and write whether **Spike Gated** is listed. Now run **Spike: Toggle Gated Tool** (a message says the key is now true), then **Spike: Log Info** again and look at the same two places. Expected (not yet seen): absent while false, present while true.
 4. **Machine setting (g).** The line `setting machineSetting effective=... user=... workspace=... workspaceFolder=...` of the second **Spike: Log Info** shows the value. Expected (not yet seen): `effective="default"`; the workspace file value `from-workspace` must **not** be the effective value. Also open Settings (Ctrl+,), search `cabinetSpike`, click the **Workspace** tab and write whether a warning says the setting cannot be applied there.
-5. **Telemetry and chat settings (j).** The list below comes from the installed VS Code. In Settings, search `telemetry` and write the value shown for `telemetry.telemetryLevel`. Search `chat.disableAIFeatures` and write its value.
+5. **Telemetry (j).** Nothing to do in the window: the names come from the command below, and the probe log prints `telemetryEnabled=`.
 
 ```bash
 grep -h -o '"telemetry\.[A-Za-z.]*"' "$(dirname "$(dirname "$(which code)")")"/*/resources/app/out/vs/workbench/workbench.desktop.main.js | sort -u | grep -E 'telemetryLevel"$|enableCrashReporter|feedback|captureContent|enableTelemetry'
@@ -190,6 +209,10 @@ LOG=$(find /c/Users/dwyol/x0-vscode-data/logs -name '*Cabinet Spike*.log' | sort
 **Paste back:** your answers to steps 1 to 5, the `grep` output and the dump.
 
 ## Part 5: remote window (optional, about 8 minutes) [question (h)]
+
+**Needs a real Linux distribution (for example Ubuntu).** The first run was skipped because the only WSL distribution was `docker-desktop`, Docker's internal one.
+
+**Terminal: Git Bash** for the log command; the other steps are clicks in the VS Code test window.
 
 Skip this part if you have neither WSL nor an SSH machine, and write "not tested". Everything here is **(not yet seen)**. The probe declares `extensionKind: ["ui"]`; the test forces the other value with VS Code's own override setting. This approximates declaring each value in the manifest; say so in the run record.
 
@@ -212,6 +235,8 @@ Expected: the `env` lines show `remoteName=wsl` (or `ssh-remote`), with `platfor
 **Paste back:** your answers and the output lines.
 
 ## Part 6: clean up (about 2 minutes)
+
+**Terminal: Git Bash.**
 
 Close the test window (and the remote connection). Then, in Git Bash, the proof that your real settings are untouched (the "after"; the hash must equal the one of Part 0):
 
@@ -237,4 +262,8 @@ Only you can walk: everything in the VS Code window (sign-in state, install, pic
 
 ## Run record
 
-_(Appended after the run, in the format of `docs/HUMAN-TESTS-PROTOCOL.md`.)_
+- **Date and VS Code version:** 27 October 2026, VS Code 1.143.1 stable, separate profile (signed out, no Copilot). The installed version was 1.142.0 until a pending update was applied (lesson 1).
+- **Matched:** Part 0 (all files made, hash of the real settings identical before and after: `b5e63f15...`); install from VSIX; signed-out chat with both models known to VS Code (tags Tools and Vision on the first only); Spike Agent listed with its tools list respected; the image inside a tool result; attached PNG and pasted image as image data; machine-scoped setting ignores the workspace file; the `when` clause hides the tool from the model's list.
+- **Deviated (each is a finding about the test first, fixed above):** (1) the test window did not open because a VS Code update was pending (lesson 1); (2) the probe was first installed in the owner's normal profile (lesson 2; removed, and its folder is marked obsolete); (3) on-screen names differed from the test (no Session Target setting, the model and mode buttons, the **+** that opens the Language Models screen); (4) in Restricted Mode the probe is disabled and the chat refuses models: the folder must be trusted; (5) the test expected a plain reply in Ask, but every mode sends tools; (6) Spike Plain Model was expected in Ask and was absent in every mode; (7) the first pasted capture failed (clipboard) and was repeated; (8) the Ask turns of Part 3 were done in one chat and `#selection` and `#file` produced one chip; (9) Part 4 step 5 (telemetry values) was unclear and dropped.
+- **Not shown:** (h) remote windows (the only WSL distribution was `docker-desktop`); the qualified string a `model:` field needs; the Configure Tools panel before the toggle; `#file` as a separate turn; the values of the telemetry settings in the Settings editor.
+- **Method note:** the probe log was read directly from the test profile's log folder instead of being pasted by the owner. Its copy was kept in the session scratchpad only.
