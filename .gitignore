@@ -1,0 +1,25 @@
+# Local session prompts: never committed
+docs/SESSION/
+docs/SESSION-*.md
+
+# Dependencies and build output
+node_modules/
+out/
+dist/
+*.tsbuildinfo
+*.vsix
+
+# Test and tool output
+coverage/
+.vscode-test/
+*.log
+
+# Secrets and local environment (test authorities are created at run time, never stored)
+.env
+.env.*
+*.pem
+*.key
+
+# Operating system
+.DS_Store
+Thumbs.db
