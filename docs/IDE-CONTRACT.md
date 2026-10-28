@@ -41,7 +41,7 @@ Every **chat alias** the gateway serves (`MODEL_ALIASES` minus the embedding ali
 | `ide_api` | Integer version. The extension refuses any other value than the one it knows. |
 | `features.agents` | `true` from Lot 16 when `GET /ide/v1/agents` is available. |
 | `features.document_analysis` | `true` from Lot 17 when `IDE_DOCUMENT_ANALYSIS=on` and `POST /ide/v1/files/analyze` is mounted. |
-| `features.image_description` | `true` from Lot 17 when `IDE_VISION_ALIAS` names a vision-capable alias (so the analysis route can describe images and scanned pages). |
+| `features.image_description` | `true` from Lot 17 when `IDE_VISION_ALIAS` names a vision-capable alias (so the analysis route can describe images and scanned pages) **and `features.document_analysis` is also `true`**: the flag says what the route can do, so it is `false` while the route is not mounted. Asked again at each call of this route: the runtime must report `vision` for the weight now. |
 | `data[].id` | The alias, sorted ascending. |
 | `data[].context_window` | Tokens one request may hold (prompt + answer): `min(configured window, the model's own maximum)` (`effective_context_window`). The gateway sends exactly this value to the runtime as `num_ctx` on every request and **never varies it for an alias**, because a runtime reloads a model whose context size changes between requests. |
 | `data[].max_output_tokens` | `min(IDE_MAX_OUTPUT_TOKENS, context_window // 2)`. |
@@ -181,6 +181,21 @@ Turns a document or an image that lives on the developer's machine into text the
 | `warnings` | Machine codes with an optional `:count`, never prose. |
 
 Counts toward the IDE gate and rate limit like a chat request.
+
+### Clarifications (Lot 17b, D-055)
+
+These fix what the text above leaves open. Nothing here adds an error code.
+
+- **Request.** `filename` is optional, is echoed in the answer (`null` when absent) and is never read, logged or recorded. `question` is optional, at most 2000 characters, and is used only by `"describe"`. `mode` is `"extract"` by default. Unknown fields are ignored. A malformed request is `invalid_request` 422 with the field names (`body.mode`, `body.question`, `body.media_type`, `content_base64`).
+- **`pages`** is the page count of a PDF, the sheet count of a workbook, the slide count of a presentation, `1` for an image, and **`null` for a Word file and a text file** (no page count exists without laying the text out). A client must accept `null`.
+- **`mode: "extract"`**: the text of every format. An image gives `text: ""`, `images: []` and the warning `image_not_described` (describing is `"describe"`'s job). The scanned pages of a PDF (fewer than ten visible characters) are only listed, in the warning `scanned_pages:N`.
+- **`mode: "describe"`** needs `IDE_VISION_ALIAS` to name an alias of the editor whose weight reports `vision`; otherwise `provider_capability_unsupported` 400 with `data.capability: "vision"` (checked before the file is read). Per format:
+  - an image: one description, which is both `text` and the single entry of `images` (`{"index": 0, "page": 1, "description": "..."}`); a failure of the model is the model's error (`provider_unreachable`, `empty_answer`, ...), because there is no text to keep; an image over `IDE_MAX_IMAGE_BYTES` is `payload_too_large` 413 with `data.limit`;
+  - a PDF: the pages that have text are read as in `"extract"`, and up to `min(8, IDE_MAX_IMAGES_PER_REQUEST)` scanned pages are drawn and described, one model call per page; each description is written in `text` under its `--- Page N ---` line, after the line `[Image description]`, and is an entry of `images` (`index` counts from 0, `page` is the PDF page); a model failure on a page leaves the page as it was and is counted; a runtime that is unreachable or times out is asked once, not once per page;
+  - any other supported format (Word, Excel, PowerPoint, text): `invalid_request` 422, field `mode`.
+- **Warning codes**, each `code` or `code:N`: `pages_truncated:N` (pages beyond `IDE_MAX_FILE_PAGES` or slides, left out; `truncated` is `true`), `sheets_truncated:N`, `sheet_truncated`, `decoded_as_cp1252`, `scanned_pages:N`, `scanned_pages_described:N`, `scanned_pages_skipped:N` (scanned pages beyond the ceiling above), `description_failed:N` (pages whose description failed or was empty), `image_not_described`. Text longer than `IDE_MAX_ANALYSIS_CHARS` (descriptions included) is cut and `truncated` is `true`.
+- **Which refusal gives which error.** The declared `media_type` is not one of the twelve: `provider_capability_unsupported` 400, `data.media_type`. An old Office file (`.doc`, `.xls`, `.ppt`) under any declared type: the same. The content contradicts the declared type, or a text type holds binary data: `invalid_request` 422, field `media_type`. Bad base64, an empty file, a damaged, encrypted, protected or booby-trapped file: `invalid_request` 422, field `content_base64`. Larger than `IDE_MAX_FILE_BYTES`: `payload_too_large` 413, `data.limit`. A worker that fails, is killed or times out: `provider_error` 502, `data.reason: "analysis_failed"`. A full editor gate: `server_busy` 503.
+- **One slot of the editor gate** is held for the whole request, the reading and every description included.
 
 ## 6. What the surface deliberately does not do
 
