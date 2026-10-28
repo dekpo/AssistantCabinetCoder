@@ -11,6 +11,7 @@ import {
   type ConnectionState,
 } from "./client";
 import { codeOf } from "./codes";
+import type { ChatPart } from "./convert";
 import { discoverServer, readTextFile, type NoServerReason, type Target } from "./discovery";
 import { readKey, removeKey, saveKey } from "./keys";
 import { CallLog } from "./log";
@@ -22,9 +23,11 @@ import {
   STATUS_TOOLTIP,
   UI,
 } from "./messages";
+import { ChatProvider, type Host, type Resolution } from "./provider";
 import { closeAgents, loadCaFile } from "./transport";
 
 const PREFIX = "assistantCabinetCoder";
+const VENDOR = "assistantcabinetcoder";
 const COMMANDS = {
   manage: `${PREFIX}.manage`,
   setKey: `${PREFIX}.setKey`,
@@ -47,6 +50,12 @@ function toSignal(token: vscode.CancellationToken): AbortSignal {
   return controller.signal;
 }
 
+function toEditorPart(part: ChatPart): vscode.LanguageModelResponsePart {
+  return part.kind === "text"
+    ? new vscode.LanguageModelTextPart(part.value)
+    : new vscode.LanguageModelToolCallPart(part.callId, part.name, part.input);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel(UI.outputChannelName);
   const log = new CallLog((line) => output.appendLine(line));
@@ -54,6 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
   status.command = COMMANDS.manage;
   status.tooltip = STATUS_TOOLTIP;
   let refreshCounter = 0;
+  const modelChanges = new vscode.EventEmitter<void>();
 
   async function resolve(): Promise<Resolved> {
     const config = vscode.workspace.getConfiguration(PREFIX);
@@ -79,12 +89,33 @@ export function activate(context: vscode.ExtensionContext): void {
     return { ok: true, target: outcome.target, options };
   }
 
+  const host: Host = {
+    resolve: async (): Promise<Resolution> => {
+      const resolved = await resolve();
+      return resolved.ok
+        ? { ok: true, url: resolved.target.url, options: resolved.options }
+        : resolved;
+    },
+    show: (text, offerKey) => {
+      const actions = offerKey === true ? [UI.actionSetKey] : [];
+      void vscode.window.showWarningMessage(text, ...actions).then((choice) => {
+        if (choice === UI.actionSetKey) {
+          void vscode.commands.executeCommand(COMMANDS.setKey);
+        }
+      });
+    },
+    log: (record) => log.record(record),
+    fireChange: () => modelChanges.fire(),
+  };
+  const provider = new ChatProvider(host);
+
   function showState(state: ConnectionState): void {
     status.text = STATUS_LABELS[state];
     status.show();
   }
 
   async function refreshStatus(): Promise<void> {
+    provider.invalidate();
     const ticket = ++refreshCounter;
     const resolved = await resolve();
     if (ticket !== refreshCounter) {
@@ -221,9 +252,40 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
+  const languageModels: vscode.LanguageModelChatProvider = {
+    onDidChangeLanguageModelChatInformation: modelChanges.event,
+    provideLanguageModelChatInformation: (options) => provider.information(options.silent),
+    provideLanguageModelChatResponse: (model, messages, options, progress, token) =>
+      provider.chat(
+        {
+          model: { id: model.id, imageInput: model.capabilities.imageInput === true },
+          // The editor sends a System role that its type declarations do not list, so roles go by name.
+          messages: messages.map((entry) => ({
+            role: String(vscode.LanguageModelChatMessageRole[entry.role]),
+            content: entry.content,
+          })),
+          tools: options.tools,
+          toolMode:
+            options.toolMode === vscode.LanguageModelChatToolMode.Required ? "required" : "auto",
+          modelOptions: options.modelOptions,
+        },
+        (part) => progress.report(toEditorPart(part)),
+        toSignal(token),
+      ),
+    provideTokenCount: (model, input) =>
+      Promise.resolve(
+        provider.countTokens(
+          model.id,
+          typeof input === "string" ? input : { content: input.content },
+        ),
+      ),
+  };
+
   context.subscriptions.push(
     output,
     status,
+    modelChanges,
+    vscode.lm.registerLanguageModelChatProvider(VENDOR, languageModels),
     vscode.commands.registerCommand(COMMANDS.manage, manage),
     vscode.commands.registerCommand(COMMANDS.setKey, setKey),
     vscode.commands.registerCommand(COMMANDS.clearKey, clearKey),

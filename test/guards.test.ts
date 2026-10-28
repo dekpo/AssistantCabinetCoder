@@ -31,8 +31,6 @@ describe("language guard", () => {
       ...listFiles("src", [".ts"]),
       ...listFiles("test", [".ts", ".md", ".json", ".txt"]).filter((file) => file !== FIXTURE),
       ...listFiles("docs", [".md"]).filter((file) => !file.startsWith("docs/SESSION/")),
-      ...listFiles("spike/src", [".ts"]),
-      ...listFiles("spike/test", [".ts"]),
       "README.md",
       "AGENTS.md",
       "package.json",

@@ -42,18 +42,18 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 
 ## Identifiers (one spelling, never invent another)
 
-| Thing                      | Value                                                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| npm `name`                 | `assistant-cabinet-coder`                                                                                                                                     |
-| `displayName`              | `Assistant Cabinet Coder`                                                                                                                                     |
-| `publisher`                | `assistantcabinet`                                                                                                                                            |
-| Provider `vendor`          | `assistantcabinetcoder`                                                                                                                                       |
-| Command and setting prefix | `assistantCabinetCoder.` (commands: `manage`, `setKey`, `clearKey`, `selectCaFile`, `testConnection`, `showOutput`, later `syncAgents`, `removeSyncedAgents`) |
-| Settings                   | `assistantCabinetCoder.serverUrl`, `.caFile`, `.autoDiscover`, `.requestTimeoutSeconds`, later `.maxAttachmentBytes` (all `"scope": "machine"`)               |
-| Context keys               | `assistantCabinetCoder.documentAnalysis`, `.imageDescription`, `.agents`                                                                                      |
-| Command palette category   | `Assistant Cabinet Coder`                                                                                                                                     |
-| Tool names (model-facing)  | `cabinet_read_document`, `cabinet_view_image`                                                                                                                 |
-| Synced agent files         | `.github/agents/cabinet-<id>.agent.md`, first line `<!-- managed by Assistant Cabinet Coder; do not edit; server catalogue id: <id> -->`                      |
-| Package file               | `assistant-cabinet-coder-<version>.vsix`                                                                                                                      |
-| Sources                    | `src/`, tests in `test/`, stub gateway in `test/stub-gateway/`                                                                                                |
-| Source modules             | `platform`, `discovery`, `transport`, `sse`, `client`, `convert`, `provider`, `tools`, `agents`, `log`, `messages`, plus the thin VS Code adapter `extension` |
+| Thing                      | Value                                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm `name`                 | `assistant-cabinet-coder`                                                                                                                                                                |
+| `displayName`              | `Assistant Cabinet Coder`                                                                                                                                                                |
+| `publisher`                | `assistantcabinet`                                                                                                                                                                       |
+| Provider `vendor`          | `assistantcabinetcoder`                                                                                                                                                                  |
+| Command and setting prefix | `assistantCabinetCoder.` (commands: `manage`, `setKey`, `clearKey`, `selectCaFile`, `testConnection`, `showOutput`, later `syncAgents`, `removeSyncedAgents`)                            |
+| Settings                   | `assistantCabinetCoder.serverUrl`, `.caFile`, `.autoDiscover`, `.requestTimeoutSeconds`, later `.maxAttachmentBytes` (all `"scope": "machine"`)                                          |
+| Context keys               | `assistantCabinetCoder.documentAnalysis`, `.imageDescription`, `.agents`                                                                                                                 |
+| Command palette category   | `Assistant Cabinet Coder`                                                                                                                                                                |
+| Tool names (model-facing)  | `cabinet_read_document`, `cabinet_view_image`                                                                                                                                            |
+| Synced agent files         | `.github/agents/cabinet-<id>.agent.md`, first line `<!-- managed by Assistant Cabinet Coder; do not edit; server catalogue id: <id> -->`                                                 |
+| Package file               | `assistant-cabinet-coder-<version>.vsix`                                                                                                                                                 |
+| Sources                    | `src/`, tests in `test/`, stub gateway in `test/stub-gateway/`                                                                                                                           |
+| Source modules             | `codes`, `platform`, `discovery`, `transport`, `sse`, `client`, `keys`, `convert`, `tokens`, `provider`, `tools`, `agents`, `log`, `messages`, plus the thin VS Code adapter `extension` |

@@ -5,6 +5,7 @@
  */
 import type { ConnectionReport, ConnectionState } from "./client";
 import type { MachineCode } from "./codes";
+import type { ConvertReason } from "./convert";
 import type { NoServerReason } from "./discovery";
 
 /** One sentence per machine code. */
@@ -123,7 +124,74 @@ export const UI = {
   actionSetKey: "Set API Key",
   actionSelectCaFile: "Select CA File",
   actionOpenSettings: "Open Settings",
+  providerDetail: "Assistant Cabinet Coder",
+  providerMismatch:
+    "This extension and this server do not match: the server speaks a different version of the editor interface. Update the extension or the server so that both use the same version.",
 } as const;
+
+/** Short texts added to what the model receives; neutral about who the user is. */
+export const CONVERSION_NOTES = {
+  imageFromTool: (toolName: string | undefined): string =>
+    toolName === undefined
+      ? "Image returned by a tool."
+      : `Image returned by the tool ${toolName}.`,
+  resultPartLeftOut:
+    "[A part of this tool result could not be passed to the model and was left out.]",
+  resultIsImage: "[This tool returned an image, given in the next message.]",
+  resultEmpty: "[This tool returned no text.]",
+} as const;
+
+/** Why a request was refused before sending, or a model answer could not be used. */
+export const CONVERSION_MESSAGES: Record<ConvertReason, string> = {
+  unknown_role:
+    "The chat sent a message with a role this extension does not know, so the request was not sent.",
+  unsupported_part:
+    "The chat sent content this extension cannot pass to the model (it carries text, PNG, JPEG, WebP and GIF images, tool calls and tool results), so the request was not sent.",
+  image_without_vision:
+    "This model cannot read images, so the request was not sent. Choose a model that reports vision, or start a new chat without the image: images stay in the chat history and are sent again with every request.",
+  bad_tool_call: "The model sent a tool call without a name. Try again.",
+  bad_tool_arguments:
+    "The model sent a tool call whose arguments are not valid. Try again, or choose another model.",
+};
+
+/** The sentence for a conversion failure; the tool is named only when the caller verified its name. */
+export function describeConversionFailure(
+  reason: ConvertReason,
+  toolName: string | undefined,
+): string {
+  if (reason === "bad_tool_arguments" && toolName !== undefined) {
+    return `The model called the tool ${toolName} with arguments that are not valid. Try again, or choose another model.`;
+  }
+  return CONVERSION_MESSAGES[reason];
+}
+
+/** The tooltip of a model in the picker: what the server reported, and what was assumed. */
+export function describeModelTooltip(
+  model: {
+    contextWindow: number | undefined;
+    maxOutputTokens: number | undefined;
+    tools: boolean;
+    vision: boolean;
+  },
+  fallback: { window: number; output: number },
+): string {
+  const lines = [
+    model.contextWindow === undefined
+      ? `Context window: not reported by the server, ${fallback.window} tokens assumed.`
+      : `Context window: ${model.contextWindow} tokens.`,
+    model.maxOutputTokens === undefined
+      ? `Output ceiling: not reported by the server, ${fallback.output} tokens assumed.`
+      : `Output ceiling: ${model.maxOutputTokens} tokens.`,
+    `Tool calling: ${yesNo(model.tools)}. Image input: ${yesNo(model.vision)}.`,
+  ];
+  if (!model.tools) {
+    lines.push("Without tool calling VS Code does not offer this model in the chat.");
+  }
+  if (model.contextWindow !== undefined && model.contextWindow < 32768) {
+    lines.push("Agent and Plan work best with a window of 32768 tokens or more.");
+  }
+  return lines.join("\n");
+}
 
 function yesNo(value: boolean): string {
   return value ? "yes" : "no";
@@ -173,7 +241,7 @@ export function formatReport(
   }
   for (const model of models.filter((candidate) => !candidate.tools)) {
     lines.push(
-      `Note: ${model.id} does not report tool calling. VS Code 1.143.1 does not offer such a model in the chat picker in any mode (measured by the spike).`,
+      `Note: ${model.id} does not report tool calling. VS Code 1.143.1 does not offer such a model in the chat picker in any mode (measured on that version).`,
     );
   }
   const headline =

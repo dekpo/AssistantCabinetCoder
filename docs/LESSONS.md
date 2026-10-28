@@ -37,3 +37,15 @@ One numbered entry per mistake already made, written the moment it is found: wha
 27 October 2026, found while playing Part 5 of `docs/human-tests/X1a-connection.md`. The checks (`grep` for the key, `ls` of the extensions folder) and the `rm` ran with the test window still open: ten VS Code processes held the profile, `grep` could not read three files, `rm` removed only the files that were not locked, and the answer about the extensions folder (which still held the extension) could not be read as "uninstall left something behind". The first `rm` also changed the folders before the checks were repeated, so the repeated checks were weaker.
 
 **Rule:** a clean-up part starts with a step that closes the test window and says how to know it is closed (a "Device or resource busy" message means it is not); no check or deletion is run before that, and a check is never run after a deletion started. A deviation of this kind is recorded in the run record as "not shown" for what it hid.
+
+## 7. The contract guard went red because the server committed a newer contract
+
+28 October 2026, found by the baseline run of Lot X1b (121 passed, 1 failed). The server's Lot 17b, committed late on 27 October, changed `docs/IDE-CONTRACT.md` in the server project; the vendored copy here was the one of 27 October morning, and the guard that compares the two when the server repository is next to this one failed before any edit.
+
+**Rule:** a red baseline is reported to the owner at once, with the cause, and nothing else starts until the owner decides. When the cause is a newer contract in the server project, the owner decides to copy it over (never edited here), it is checked with `cmp`, and it goes in a commit of its own so that it is not mixed with a lot's work.
+
+## 8. The writing tool altered Unicode escapes again, and long heredocs failed in the shell tool
+
+28 October 2026, Lot X1b. Lesson 3 happened again: a test and the stub came out of the writing tool with an accented character where the source had an escape sequence, found at once by the check that lesson 3 prescribes (`grep -nP "[^\x00-\x7F]" -r src test`). The same session found that multi-line heredocs fail in the agent's shell tool ("unexpected EOF"), so files are written with the file-writing tool and small edits are made with the edit tool or with `node -e` scripts that build the backslash with `String.fromCharCode(92)`.
+
+**Rule:** run the check of lesson 3 after every file that may hold a non-ASCII character, before the first compile; never rely on a heredoc to write source or documents.

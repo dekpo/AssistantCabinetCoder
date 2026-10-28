@@ -31,7 +31,7 @@ describe("manifest", () => {
     assert.equal(manifest.name, "assistant-cabinet-coder");
     assert.equal(manifest.displayName, "Assistant Cabinet Coder");
     assert.equal(manifest.publisher, "assistantcabinet");
-    assert.equal(manifest.version, "0.1.0");
+    assert.equal(manifest.version, "0.2.0");
     assert.equal(manifest.main, "./out/src/extension.js");
     assert.deepEqual(manifest.categories, ["AI", "Chat"]);
   });
@@ -77,13 +77,12 @@ describe("manifest", () => {
     assert.equal(properties["assistantCabinetCoder.requestTimeoutSeconds"]?.default, 900);
   });
 
-  it("never activates on everything, and has no provider contribution yet", () => {
+  it("never activates on everything, and has no tool or agent contribution yet", () => {
     assert.ok(manifest.activationEvents.length > 0);
     for (const event of manifest.activationEvents) {
       assert.notEqual(event, "*");
       assert.ok(!event.startsWith("onStartupFinished") || event === "onStartupFinished");
     }
-    assert.equal("languageModelChatProviders" in manifest.contributes, false);
     assert.equal("languageModelTools" in manifest.contributes, false);
     assert.equal("chatAgents" in manifest.contributes, false);
   });

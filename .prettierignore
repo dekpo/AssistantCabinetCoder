@@ -1,6 +1,5 @@
 node_modules/
 out/
-spike/out/
 package-lock.json
 *.vsix
 

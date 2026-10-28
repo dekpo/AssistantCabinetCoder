@@ -1,6 +1,0 @@
-src/**
-test/**
-out/test/**
-tsconfig.json
-.vscodeignore
-*.vsix

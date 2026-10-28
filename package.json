@@ -2,7 +2,7 @@
   "name": "assistant-cabinet-coder",
   "displayName": "Assistant Cabinet Coder",
   "description": "Gives the VS Code chat the models of an Assistant Cabinet server.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "assistantcabinet",
   "license": "MIT",
   "private": true,
@@ -37,9 +37,6 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "package": "npm run build && vsce package --no-dependencies --allow-missing-repository",
-    "spike:build": "tsc -p spike/tsconfig.json",
-    "spike:test": "npm run spike:build && node --test \"spike/out/test/**/*.test.js\"",
-    "spike:package": "npm run spike:build && cd spike && vsce package --no-dependencies --skip-license --allow-missing-repository",
     "stub": "npm run build && node out/test/stub-gateway/run.js"
   },
   "devDependencies": {
@@ -53,6 +50,13 @@
     "typescript-eslint": "8.72.1"
   },
   "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "assistantcabinetcoder",
+        "displayName": "Assistant Cabinet Coder",
+        "managementCommand": "assistantCabinetCoder.manage"
+      }
+    ],
     "commands": [
       {
         "command": "assistantCabinetCoder.manage",
