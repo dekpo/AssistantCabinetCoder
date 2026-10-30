@@ -1,5 +1,6 @@
-# Local session prompts: never committed
-docs/SESSION/
+# TEMPORARY (owner decision, 30 October 2026): the session prompts are tracked so that another machine can resume.
+# Restore the line below once the handover is over, then run: git rm -r --cached docs/SESSION
+# docs/SESSION/
 docs/SESSION-*.md
 
 # Dependencies and build output
