@@ -4,6 +4,7 @@
   "description": "Gives the VS Code chat the models of an Assistant Cabinet server.",
   "version": "0.2.0",
   "publisher": "assistantcabinet",
+  "icon": "images/icon.png",
   "license": "MIT",
   "private": true,
   "repository": {
@@ -123,6 +124,7 @@
   },
   "files": [
     "out/src/**/*.js",
+    "images/icon.png",
     "LICENSE",
     "README.md"
   ]
