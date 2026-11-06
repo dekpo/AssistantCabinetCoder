@@ -203,7 +203,7 @@ Fetch URLs; store anything; expose the runtime's own hidden reasoning; the Ollam
 
 ## 7. Settings
 
-All optional, documented in `docs/CONFIGURATION.md` and `docs/USER-GUIDE.md`, edited with `cabinet-server config set KEY=VALUE` (Lot 11) or Notepad, applied by `cabinet-server restart`.
+All optional, documented in `docs/CONFIGURATION.md` and `docs/USER-GUIDE.md`, edited with `cabinet config set KEY=VALUE` (Lot 11) or Notepad, applied by `cabinet restart`.
 
 | Setting | Default | Lot | Meaning |
 | --- | --- | --- | --- |
@@ -224,4 +224,4 @@ All optional, documented in `docs/CONFIGURATION.md` and `docs/USER-GUIDE.md`, ed
 | `IDE_ANALYSIS_TIMEOUT_SECONDS` | `120` | 17 | Worker time limit. |
 | `OLLAMA_FLASH_ATTENTION`, `OLLAMA_KV_CACHE_TYPE`, `OLLAMA_NUM_PARALLEL` | unset | 18 | Runtime tuning for large contexts, passed by the launcher only when set (verified against the pinned Ollama release). |
 
-Windows per alias stay in `MODEL_CONTEXT_WINDOWS` / `DEFAULT_CONTEXT_WINDOW` (`cabinet-server models context`). An alias meant for Agent or Plan should get 32 768 tokens or more; a professional code model on a large machine, 131 072 or more.
+Windows per alias stay in `MODEL_CONTEXT_WINDOWS` / `DEFAULT_CONTEXT_WINDOW` (`cabinet models context`). An alias meant for Agent or Plan should get 32 768 tokens or more; a professional code model on a large machine, 131 072 or more.
