@@ -2,7 +2,13 @@
 
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, **`docs/SPIKE-FINDINGS.md`** (items (d), (e), (i), (k)), the VS Code guide `api/extension-guides/ai/tools` (tools, `prepareInvocation`, confirmation, `LanguageModelToolResult`), and the conversion of tool-result images in `src/convert.ts` (Lot X1b).
 
-Branch: `feat/x2a-view-image`, from `feat/x1b-provider` once the owner has accepted it. Estimate: 4 hours of agent work plus the owner's test (about 15 minutes). Needs nothing from the server for `view` mode.
+Branch: `feat/x2a-view-image`, from `feat/x1c-server-catch-up` once the owner has accepted X1b and X1c (the run record of `docs/human-tests/X1b-chat.md`). Estimate: 4 hours of agent work plus the owner's test (about 15 minutes). Needs nothing from the server for `view` mode; the real test uses the Mac's server with `IDE_ENABLED=on` and a model whose `capabilities.vision` is true (read `GET /ide/v1/models` to find one; do not guess).
+
+> **Status of this file (18 November 2026): a plan, to be aligned at the end of Lot X1c** (COMMON-RULES section 9). Already known: the baseline is X1c's final count; the base of every `git diff --stat` below is `feat/x1c-server-catch-up`, not `feat/x1b-provider`; the version becomes 0.3.0, so the version assertions of `test/manifest.test.ts` and `test/provider-guards.test.ts` are named exceptions; `test/manifest.test.ts` also asserts "no tool or agent contribution yet" (D-017), which this lot makes false: that assertion is a named exception to confirm with the owner when the file is aligned. The spike's (i) showed that the editor's file tools **are** offered to a provider's models, so the contingency below does not apply.
+
+### Open question for the owner, to settle when this file is aligned
+
+The spike's (i) found that the editor **already has its own `view_image` tool**, offered to the provider's models, and its consequences say: "the lot adds `cabinet_view_image` only for what that tool does not give (a model without vision described by the server)". The `view` mode below therefore duplicates the editor. **Recommended:** drop `view` mode; this lot builds the shared safety rules (`src/attachments.ts`), the call to `POST /ide/v1/files/analyze` (`src/analysis.ts`, moved here from X2b) and `cabinet_view_image` in `describe` mode only (visible only when `features.image_description` is true); X2b keeps the document tool. Alternative: keep the plan as written. The owner decides; the file is rewritten accordingly before the chat starts.
 
 ## What this lot is and is not
 
@@ -14,7 +20,7 @@ The editor's own agent tools already **read, create, edit and search files, run 
 
 Create: `src/attachments.ts` (pure rules: path resolution, workspace containment, size limit, image signature check, confirmation text; the file system is passed in so tests use temporary folders), `src/tools.ts` (registration of `cabinet_view_image`), tests, `docs/human-tests/X2a-view-image.md`.
 May change: `package.json` (the `languageModelTools` contribution, the setting `assistantCabinetCoder.maxAttachmentBytes`), `src/extension.ts` (registration only), `src/messages.ts` and `src/log.ts` (additions only), `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`.
-**Untouchable (empty `git diff --stat feat/x1b-provider -- <paths>` in the report):** `src/transport.ts`, `src/sse.ts`, `src/discovery.ts`, `src/platform.ts`, `src/keys.ts`, `src/client.ts`, `src/convert.ts`, `src/provider.ts`, `src/tokens.ts`, `docs/IDE-CONTRACT.md`, `docs/VIBE-CODING-PRACTICES.md`, `docs/SPIKE-FINDINGS.md`, and every existing test file.
+**Untouchable (empty `git diff --stat feat/x1c-server-catch-up -- <paths>` in the report):** `src/transport.ts`, `src/sse.ts`, `src/discovery.ts`, `src/platform.ts`, `src/keys.ts`, `src/client.ts`, `src/convert.ts`, `src/provider.ts`, `src/tokens.ts`, `docs/IDE-CONTRACT.md`, `docs/VIBE-CODING-PRACTICES.md`, `docs/SPIKE-FINDINGS.md`, and every existing test file.
 
 ## Baseline
 

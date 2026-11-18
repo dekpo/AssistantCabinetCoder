@@ -1,12 +1,14 @@
 # Common rules of the extension programme (Lots X0 to X4)
 
-Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". This file replaces the block of rules and VS Code facts that used to be copied at the end of each lot, so that a rule is changed in one place. It is local (the folder `docs/SESSION/` is in `.gitignore`). The general practices of the programme are in the tracked file `docs/VIBE-CODING-PRACTICES.md`; this file adds what is specific to the extension and to the lots.
+Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". This file replaces the block of rules and VS Code facts that used to be copied at the end of each lot, so that a rule is changed in one place. Since 30 October 2026 the folder `docs/SESSION/` is tracked by git (handover between machines; Lot X1c asks the owner whether it stays tracked). The general practices of the programme are in the tracked file `docs/VIBE-CODING-PRACTICES.md`; this file adds what is specific to the extension and to the lots.
 
 ## 1. The project
 
-- **Name: AssistantCabinetCoder.** A VS Code extension that gives the editor's chat the models of the server `AssistantCabinetServer`. Folder on this machine: `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder`. Remote: `https://github.com/dekpo/AssistantCabinetCoder.git`. (The older session files and the shared contract say `AssistantCabinetVSCode`: same project, the owner decided on 27 October 2026 that the name is `AssistantCabinetCoder`. The contract copy keeps the old name on purpose, see section 2.)
-- The server project is at `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetServer`. You may **read** it when a lot says so. You never change it, nor `AssistantCabinetAI`. Its own session files for the editor surface are in its `docs/IDE-VSCODE-SESSION/` (the server's `COMMON-RULES.md` there is the model of this file).
-- The tower (the server's machine): MSI 0.1.11 on 27 October 2026, `http://192.168.1.83:8090`, plain HTTP, no keys. The editor surface exists there only after the server's Lot 15b is installed and `IDE_ENABLED=on`. Until then, the stub gateway of the extension is the only gateway that speaks `/ide/v1`.
+- **Name: AssistantCabinetCoder.** A VS Code extension that gives the editor's chat the models of the server `AssistantCabinetServer`. Folder: `/Users/ydekpo/Documents/CURSOR/AssistantCabinetCoder` on the owner's Mac (the owner's machine since 6 November 2026); `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder` on the Windows PC. Remote: `https://github.com/dekpo/AssistantCabinetCoder.git`. (The older session files and the shared contract say `AssistantCabinetVSCode`: same project, the owner decided on 27 October 2026 that the name is `AssistantCabinetCoder`. The contract copy keeps the old name on purpose, see section 2.)
+- The server project is next to this one (`../AssistantCabinetServer`, branch `develop`). You may **read** it when a lot says so (read-only: never write there, not even `git fetch`). You never change it, nor `AssistantCabinetDesktop` or `AssistantCabinetAI`. Its session files for the editor surface are in its `docs/IDE-VSCODE-SESSION/`; what it wants the extension to know is in its `docs/handoffs/CODER-EXTENSION.md`.
+- **The server side of `/ide/v1` is complete** (server Lots 15a, 15b, 15c, 16, 17a, 17b, 18; only Lot 19, editor-only keys, is optional and not built). The tower `http://192.168.1.83:8090` no longer exists.
+- **The servers you test against** (state of 18 November 2026): the owner's Mac runs the server package **0.1.11**, gateway on `http://127.0.0.1:1975` (always) and `http://192.168.75.1:1975`, plain HTTP, `AUTH_MODE=off`, 128 GiB of memory, 21 chat aliases among which the code models `qwen2.5-coder:7b` and `qwen2.5-coder:14b` (window 32 768 tokens). The Windows PC runs MSI 0.1.28 or newer on `127.0.0.1:1975` and `192.168.75.2:1975`. The editor surface is **off** by default (`IDE_ENABLED`); turning it on is the owner's action (section 7).
+- The administrator's command is **`cabinet`** (server D-067), run with `sudo` on macOS. The old name `cabinet-server` survives only in frozen records.
 
 ### Identifiers (one table, used by every lot; a lot never invents another spelling)
 
@@ -14,7 +16,7 @@ Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". 
 | --- | --- |
 | npm `name` | `assistant-cabinet-coder` |
 | `displayName` | `Assistant Cabinet Coder` |
-| `publisher` | asked of the owner in Lot X0 (proposed default `assistantcabinet`) |
+| `publisher` | `assistantcabinet` (D-004) |
 | Provider `vendor` | `assistantcabinetcoder` |
 | Command and setting prefix | `assistantCabinetCoder.` (commands: `manage`, `setKey`, `clearKey`, `selectCaFile`, `testConnection`, `showOutput`, later `syncAgents`, `removeSyncedAgents`) |
 | Settings | `assistantCabinetCoder.serverUrl`, `.caFile`, `.autoDiscover`, `.requestTimeoutSeconds`, later `.maxAttachmentBytes` (all `"scope": "machine"`) |
@@ -28,7 +30,7 @@ Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". 
 
 ## 2. The contract
 
-`docs/IDE-CONTRACT.md` (tracked, committed in the first commit) is the vendored copy of the server's contract, byte-identical to the server's on 27 October 2026. **Never edit it here**: a change is made in the server project and copied over. It still names the old project name and the "Lots X0 to X4"; that is accepted, and the server project decides when to update it. If the contract is not enough for a lot, write the gap in the report; never guess the server's internals.
+`docs/IDE-CONTRACT.md` (tracked, committed in the first commit) is the vendored copy of the server's contract, byte-identical to the server's (last refreshed on 6 November 2026, commit `2149ec6`; checked identical again on 18 November 2026). A guard test compares the two when the server repository is next to this one; a red guard is lesson 7. **Never edit it here**: a change is made in the server project and copied over. It still names the old project name and the "Lots X0 to X4"; that is accepted, and the server project decides when to update it. If the contract is not enough for a lot, write the gap in the report; never guess the server's internals.
 
 ## 3. Read first, in every chat
 
@@ -39,7 +41,7 @@ Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". 
 - **One lot per chat.** Do only the lot you were started from. If the repository is not the one at the path above, or the branch the lot starts from does not exist, stop and say so.
 - **Git is owner-only.** Never commit, stage, push or tag. `git status`, `git log`, `git diff` (read-only) are allowed and are used to write the final commands. At the end give: the branch name, one or two single-line Conventional Commit subjects (one sentence, no body), and the **full copy-paste Git Bash commands for the local repository and the remote** (`git checkout <previous branch>`, `git checkout -b <branch>`, `git add <the files>`, `git commit -m "..."`, `git push -u origin <branch>`), written after reading `git status` and `git log` so they match the real state. One branch per lot, created from the previous lot's branch, never from `main`; nothing is ever proposed for `main` and no pull request (owner rule of 25 October 2026). **No AI attribution anywhere git-facing**: no Claude or model name, no co-author trailer, no generated-by link, in a commit, a branch name or a PR, whatever the tooling's default says. Nothing is published to any marketplace.
 - **Language.** Every file (code, comments, tests, documents, commit subjects, machine codes, the prompts written for another chat) is English, with no French anywhere. The extension's user-facing messages are English and live in one file, `src/messages.ts`. Any command-line script of the repository speaks English only. **Reply to the owner in French, in plain words, without jargon, in short sentences.**
-- **Terminal.** Everything written for the owner (human-test scripts included) uses **Git Bash** (POSIX) commands and `/c/Users/...` paths. No PowerShell, no `cmd`, except a step that is specific to Windows installation or configuration and that Git Bash cannot do: then say so in one line and keep to that step. Editor steps name every click by its exact label.
+- **Terminal.** Everything written for the owner (human-test scripts included) uses POSIX shell commands. **On the Mac** (the owner's machine since 6 November 2026): Terminal (zsh), `/Users/ydekpo/...` paths, `shasum -a 256`, and the `code` command is not on the PATH (use `"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"` or have the owner install the shell command). **On Windows**: Git Bash and `/c/Users/...` paths; no PowerShell, no `cmd`, except a step specific to Windows that Git Bash cannot do (say so in one line). Name the terminal at the top of every part. Editor steps name every click by its exact label. Run yourself every command that needs no click in VS Code and no `sudo` (owner's request of 30 October 2026); give one human-test part per message.
 - **Work method.** Open with a task list of at most eight lines, one estimate each; then one-line status updates; end with **one report** (section 6). A baseline run of the whole test suite before the first edit (record the count; from X1a on), targeted runs while working, the full suite, the linter and the formatter once at the end. No redundant work, no extra deliverable that was not asked for, no dead code (what is removed goes with its tests, settings and documentation). If the chat grows long, say what is done and what remains: the work continues from the files.
 - **Non-regression.** Each lot lists **the files it may change**; everything else stays byte-identical to the branch the lot started from, and the report pastes an empty `git diff --stat <start branch> -- <those paths>`. **An existing test is never edited to make it pass**: if one fails or seems to need a change, stop and tell the owner. New behaviour is additive and off or absent until the server reports the matching feature. Golden tests (written against the current behaviour, green before the change) cover whatever must not move.
 - **Privacy (binding, same as the server's).** No telemetry of any kind. No network call to any host other than the configured server. No code, message, file content, image, file name, tool argument or tool result is ever written anywhere: not to a file, not to the output channel, not to an error message. Logs carry codes, durations and counts only. The API key lives only in VS Code's secret storage and is never printed or logged. The extension never changes a setting that is not its own, never disables another extension or provider, and has no global side effect. The only files it ever writes are those a lot names explicitly and the user approved (Lot X3: `.github/agents/cabinet-*.agent.md` and one line in `.git/info/exclude`). Privacy rules are tests, not intentions.
@@ -55,7 +57,9 @@ Every lot file of this folder says "read `docs/SESSION/COMMON-RULES.md` first". 
 
 Goal and why; branch and where it starts; estimate; what to read first; **the files it may change**; numbered steps; "done means"; the final report. It ends with a pointer to this file. A lot above about six hours is split.
 
-Branch chain (each created from the previous one once the owner has accepted it): `docs/setup` (first commit: `.gitignore`, the practices, the contract) -> `feat/x0-spike` -> `feat/x1a-foundations` -> `feat/x1b-provider` -> `feat/x2a-view-image` -> `feat/x2b-read-document` -> `feat/x3-agents` -> `feat/x4-release`. A skipped lot is named by the owner; the next branch then starts from the newest one.
+Branch chain (each created from the previous one once the owner has accepted it): `docs/setup` (first commit: `.gitignore`, the practices, the contract) -> `feat/x0-spike` -> `feat/x1a-foundations` -> `feat/x1b-provider` -> `feat/logo-icon` (the icon, 6 November 2026) -> `feat/x1c-server-catch-up` (loopback, `cabinet`, and the X1b human test) -> `feat/x2a-view-image` -> `feat/x2b-read-document` -> `feat/x3-agents` -> `feat/x4-release`. A skipped lot is named by the owner; the next branch then starts from the newest one.
+
+Versions: each lot that produces an installed build raises the version (practice 9): 0.2.0 (X1b, icon), 0.2.1 (X1c), then proposed 0.3.0 (X2a), 0.4.0 (X2b), 0.5.0 (X3); the release number of X4 is the owner's choice (proposed 1.0.0). The manifest tests pin the version, so each lot names their version assertions as its only named exceptions.
 
 ## 6. The final report (in French)
 
@@ -63,16 +67,25 @@ Short sections: what was built; what was walked (with the test counts, baseline 
 
 ## 7. Pairing with the server's lots
 
-| Extension lot | Server lot it is tested against | Until then |
-| --- | --- | --- |
-| X0, X1a | none | the stub; `GET /health` of the tower works today |
-| X1b | 15b installed (MSI 0.1.12) and `IDE_ENABLED=on` | the stub |
-| X2a | none for `view` mode | the stub |
-| X2b | 17b (route), 17a (engine) | the stub |
-| X3 | 16 | the stub |
-| X4 | all, plus 18 (large machines) and 19 (editor-only keys), which have no extension lot but appear in the compatibility table | the stub |
+Every server lot the extension needs is built and installed (18 November 2026). What each extension lot needs is a **setting** on the server, turned on by the owner:
 
-The server's lots may be done in another order or later; every extension lot runs against the stub first and tolerates a server that lacks the feature (`features`, `ide_api`, a `404` means "editor surface off").
+| Extension lot | Server lot | Server settings the real test needs (owner, with `sudo` on the Mac) |
+| --- | --- | --- |
+| X0, X1a | none | none |
+| X1b, X1c | 15b, 15c, 27 (loopback) | `IDE_ENABLED=on` |
+| X2a | none for `view` mode | `IDE_ENABLED=on`, a model that reports `vision` |
+| X2b | 17a, 17b | `IDE_DOCUMENT_ANALYSIS=on`, `IDE_VISION_ALIAS=<a vision alias>` |
+| X3 | 16 | an `ide-agents.json` in the server's `config` folder (the server ships none: the administrator writes it) |
+| X4 | all, plus 18 (large machines) and 19 (editor-only keys, optional, not built), which appear in the compatibility table | HTTPS and a key for the security parts, only if the owner agrees |
+
+Every extension lot still runs against the stub first and tolerates a server that lacks the feature (`features`, `ide_api`, a `404` means "editor surface off").
+
+**The server is shared with the desktop application, which is still in development and testing.** Binding:
+
+- **Never change the server's code, its files or its settings yourself.** Every server-side step is given to the owner as commands, with what it changes and how to undo it.
+- **Before any server-side step, warn the owner in plain words** when it can disturb the desktop application: a restart of the gateway (a desktop request in progress fails; prefer `cabinet restart gateway`, which keeps Ollama and its loaded models), a big model loaded for the editor (the Mac keeps at most two models loaded, `OLLAMA_MAX_LOADED_MODELS=2`, so a code model can push out the model the desktop uses and make its next answer slow), an editor generation running at the same time as a desktop one (separate gates, but the same runtime and the same GPU: both are slower), a setting that the desktop's guide does not expect. Let the owner choose the moment.
+- **Undo at the end of a test** what the test turned on, unless the owner says to keep it, and record the answer in the run record.
+- If a server defect is found, write it in the report for the server project (the owner carries it there); never work around it in the server.
 
 ## 8. What was verified about VS Code before the spike (docs dated 21 October 2026, and `vscode.d.ts` of the `main` branch), and what is still unknown
 
@@ -88,3 +101,16 @@ Verified:
 - A `.vsix` is installed with the Extensions view menu (`...`) then **Install from VSIX...**, or `code --install-extension file.vsix`. No marketplace is involved.
 
 Still unknown, settled by Lot X0 on a real VS Code (do not assume): whether a provider extension's models are offered in Agent and Plan with no sign-in on the owner's version, and which activation event makes them appear; what exactly Agent and Plan hand to `provideLanguageModelChatResponse`; how pasted images and attached files arrive; whether a sideloaded `.vsix` can contribute `chatAgents`; whether a `when` clause hides a contributed tool; the editor's tool names; the effect of `"scope": "machine"` against a workspace settings file; `extensionKind` under remote windows.
+
+## 9. Aligning the next lot's prompt (rolling plan)
+
+The lot files of this folder were written ahead of time; each is a plan, not a fact. At the end of every lot, **before** the owner opens the next chat, the agent of the finished lot (or the planning chat) aligns the next lot file with what really happened, and says what it changed:
+
+- the branch it starts from and the base of its `git diff --stat` (the real previous branch);
+- the baseline test count (the previous lot's final count);
+- module names, interfaces, stub markers and test files that really exist (read the code, not this plan);
+- the version number and the named exceptions (the version assertions) it needs;
+- facts from the run records (`docs/human-tests/*.md`), new decisions and lessons, and any change found in the server project's `docs/handoffs/CODER-EXTENSION.md` or `docs/IDE-CONTRACT.md`;
+- the server settings its real test needs and the warnings of section 7.
+
+A lot file that turns out wrong during its own lot is not silently followed: stop and ask the owner (section 4).

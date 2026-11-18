@@ -2,7 +2,14 @@
 
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, **`docs/SPIKE-FINDINGS.md`** (items (f) and (i): the real tool names, how a model is named in the picker, whether a sideloaded `.vsix` can contribute `chatAgents`), `docs/IDE-CONTRACT.md` sections 2 and 4, the VS Code documentation of custom agents (`docs/agent-customization/custom-agents.md` and the custom agent file reference in the `vscode-docs` repository).
 
-Branch: `feat/x3-agents`, from `feat/x2b-read-document` (or from the newest accepted extension branch if the owner skipped X2). Estimate: 5 to 7 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lot 16 for the synced agents (stub until then).
+Branch: `feat/x3-agents`, from `feat/x2b-read-document` (or from the newest accepted extension branch if the owner skipped X2). Estimate: 5 to 7 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lot 16 (**built and installed**) and a catalogue file on the server.
+
+> **Status of this file (18 November 2026): a plan, to be aligned at the end of Lot X2b** (COMMON-RULES section 9): the real start branch and baseline, the version (proposed 0.5.0) and its named exceptions, the modules X2a and X2b really created (the untouchable list below names `src/analysis.ts`, which may live elsewhere).
+>
+> Already known, binding:
+> - The spike's (f): `contributes.chatAgents` with `path` **works** in a sideloaded stable `.vsix` (do not add `name` or `description` there, they are deprecated). An agent file's `tools` takes **group names** (`read`, `search`, `edit`, `execute`, `web`, `agent`, `browser`, `todo`, `vscode`, `new`); the `read` group is 9 tools and does not include `file_search`, `grep_search` or `list_dir` (those are `search`). Write the bundled agents' `tools` with group names, and check them against the groups the spike recorded. An agent without `model` uses the selected model.
+> - **The string of a `model:` field is not measured.** The first step of this lot is a short measure, with the owner, of the exact form VS Code accepts for a model of this provider (the picker shows the model's `name` on a provider tab named `Assistant Cabinet Coder`); until it is measured, synced files carry no `model:` line.
+> - **The server ships no agent text** (contract section 4): the catalogue is `ide-agents.json` in the server's `config` folder (`/Library/Application Support/AssistantCabinetServer/config/ide-agents.json` on the Mac), written by the administrator, read again when its modification time changes (no restart). For the real test, this lot writes a small **sample** catalogue in the repository (for example `test/fixtures/agents/ide-agents.sample.json`, validated by a test against the contract's rules) and gives the owner the `sudo cp` command that puts it on the server, and the `sudo rm` that removes it at the end. Writing that file is a server configuration change: say so to the owner; the desktop application does not read it.
 
 ## What "agents" means here
 

@@ -2,7 +2,14 @@
 
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, **`docs/SPIKE-FINDINGS.md`** (items (d), (e), (i), (k)), `docs/IDE-CONTRACT.md` sections 2, 5 and 7, and the modules of Lot X2a (`attachments`, `tools`).
 
-Branch: `feat/x2b-read-document`, from `feat/x2a-view-image` once the owner has accepted it. Estimate: 5 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lots 17a and 17b for the real test (everything before that runs against the stub) and, for image description, a vision alias (`IDE_VISION_ALIAS`) set on the server.
+Branch: `feat/x2b-read-document`, from `feat/x2a-view-image` once the owner has accepted it. Estimate: 5 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lots 17a and 17b (**built and installed** on the Mac, package 0.1.11) with, on the server, `IDE_DOCUMENT_ANALYSIS=on` and, for image description, `IDE_VISION_ALIAS` naming an alias whose model reports `vision`. Those settings are the owner's to set, with `sudo` and a restart of the gateway: warn the owner first (COMMON-RULES section 7: the analysis runs in a separate worker that takes memory and CPU, and `describe` loads the vision model, which may push out the model the desktop application uses).
+
+> **Status of this file (18 November 2026): a plan, to be aligned at the end of Lot X2a** (COMMON-RULES section 9): the real start branch and baseline, the version (proposed 0.4.0) and its named exceptions, and **what X2a really built**: if the owner chose to move `src/analysis.ts` and the `describe` mode of `cabinet_view_image` into X2a (open question of the X2a file), this lot keeps only the document tool and steps 2 and part of 3 below disappear.
+>
+> Already known, binding:
+> - **Coding first** (server D-056, 28 October 2026): the editor surface exists for code work; PDF, text, Markdown, CSV, JSON, spreadsheets and screenshots or diagrams matter; Office formats are accessory. PowerPoint is accepted as the contract says, but the human test does not spend time on it.
+> - The contract's section 5 now has its **"Clarifications (Lot 17b, D-055)"**: `pages` is `null` for a Word or text file; `extract` on an image gives `text: ""` and the warning `image_not_described`; scanned PDF pages are listed in `scanned_pages:N` in `extract` mode and described (at most `min(8, IDE_MAX_IMAGES_PER_REQUEST)` pages) in `describe` mode; `describe` on Word, Excel, PowerPoint or text is `invalid_request` 422 (field `mode`); the full list of warning codes. Follow them; the sentence of step 1 below about scanned pages "not fully specified" is out of date.
+> - The spike's (k) showed that a `when` clause **does** keep a contributed tool out of the model's list while the key is false (not out of `vscode.lm.tools`): use the `when` clause; the fallback "register it always" is not needed.
 
 ## Goal
 
