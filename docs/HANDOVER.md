@@ -42,7 +42,7 @@ node --version                                         # expected: 22 or higher 
 npm ci                                                 # no install script runs (.npmrc)
 npm test                                               # expected: 238 pass, 0 fail
 npm run lint && npm run format
-npm run package                                        # expected: assistant-cabinet-coder-0.2.0.vsix, 18 files
+npm run package                                        # expected: assistant-cabinet-coder-0.2.0.vsix, 19 files
 code --version                                         # the test was written for 1.143.1
 ```
 
