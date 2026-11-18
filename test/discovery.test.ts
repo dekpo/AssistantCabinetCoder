@@ -96,11 +96,8 @@ describe("serverSettingsFromEnv", () => {
 describe("targetUrlFor", () => {
   const base = { port: 8090, tls: false, tlsNames: [], authRequired: false };
 
-  it("uses a specific bind address as it is", () => {
-    assert.equal(
-      targetUrlFor({ ...base, bindAddress: "192.168.1.83" }),
-      "http://192.168.1.83:8090",
-    );
+  it("uses the loopback for a specific bind address", () => {
+    assert.equal(targetUrlFor({ ...base, bindAddress: "192.168.1.83" }), "http://127.0.0.1:8090");
   });
 
   it("uses the loopback for a wildcard in plain HTTP", () => {
@@ -122,12 +119,12 @@ describe("targetUrlFor", () => {
     assert.equal(targetUrlFor({ ...base, bindAddress: "0.0.0.0", tls: true }), undefined);
   });
 
-  it("brackets an IPv6 address", () => {
-    assert.equal(targetUrlFor({ ...base, bindAddress: "::1" }), "http://[::1]:8090");
+  it("uses the loopback for an IPv6 bind address", () => {
+    assert.equal(targetUrlFor({ ...base, bindAddress: "::1" }), "http://127.0.0.1:8090");
   });
 
   it("drops the default port of the scheme", () => {
-    assert.equal(targetUrlFor({ ...base, bindAddress: "10.0.0.5", port: 80 }), "http://10.0.0.5");
+    assert.equal(targetUrlFor({ ...base, bindAddress: "10.0.0.5", port: 80 }), "http://127.0.0.1");
   });
 });
 
@@ -176,7 +173,7 @@ describe("discoverServer", () => {
       input("SERVER_BIND_ADDRESS=192.168.1.83\nSERVER_PORT=8090\nAUTH_MODE=required\n"),
     );
     assert.ok(outcome.ok);
-    assert.equal(outcome.target.url, "http://192.168.1.83:8090");
+    assert.equal(outcome.target.url, "http://127.0.0.1:8090");
     assert.equal(outcome.target.source, "installation");
     assert.equal(outcome.target.authRequired, true);
     assert.equal(outcome.target.caFile, undefined);
@@ -195,7 +192,9 @@ describe("discoverServer", () => {
 
   it("lets the caFile setting win over the default", async () => {
     const outcome = await discoverServer(
-      input("SERVER_BIND_ADDRESS=10.0.0.5\nTLS_MODE=on\n", { caFile: "D:\\mine.pem" }),
+      input("SERVER_BIND_ADDRESS=0.0.0.0\nTLS_MODE=on\nTLS_SUBJECT_ALT_NAMES=cabinet.local\n", {
+        caFile: "D:\\mine.pem",
+      }),
     );
     assert.ok(outcome.ok);
     assert.equal(outcome.target.caFile, "D:\\mine.pem");

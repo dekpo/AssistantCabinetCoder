@@ -2,13 +2,14 @@
 
 A VS Code extension that gives the editor's chat the models of an **Assistant Cabinet server** running on your own network. Nothing is sent anywhere else: no telemetry, no other host, no cloud account.
 
-**Status: version 0.2.0, the models are in the chat.** The server's models appear in the chat's model picker, under the provider **Assistant Cabinet Coder**, and work in **Ask**, **Agent** and **Plan** (Session Target **Local**), with tool calls and pasted images. The tools of the next releases (`cabinet_view_image`, `cabinet_read_document`) and the synced agent files are not in this version.
+**Status: version 0.2.1, the models are in the chat.** The server's models appear in the chat's model picker, under the provider **Assistant Cabinet Coder**, and work in **Ask**, **Agent** and **Plan** (Session Target **Local**), with tool calls and pasted images. The tools of the next releases (`cabinet_view_image`, `cabinet_read_document`) and the synced agent files are not in this version.
 
 ## What it needs
 
 - VS Code 1.140.0 or newer (built and tested with 1.143.1), with the folder **trusted**: in Restricted Mode VS Code disables the whole chat and the extension's models (the commands stay usable).
 - No GitHub sign-in and no Copilot plan: a model brought by an extension works signed out (measured).
-- An Assistant Cabinet server whose administrator has run `cabinet-server config set IDE_ENABLED=on` and `cabinet-server restart` (server Lot 15b or newer). Without it the extension says so and offers no model.
+- An Assistant Cabinet server whose administrator has run `cabinet config set IDE_ENABLED=on` and `cabinet restart` (on macOS both are run with `sudo`). Without it the extension says so and offers no model.
+- On the computer that runs the server, a server that always listens on `127.0.0.1` (server Lot 27 or newer: the macOS package 0.1.11 and the Windows installer 0.1.28 or newer have it). An older server listens only on its network address, which discovery no longer uses: set `assistantCabinetCoder.serverUrl` for it.
 - A key, when the server asks for one (the **Set API Key** command).
 - Models that report **tool calling**: every chat mode sends tools, and VS Code does not list a model without it. **Test Connection** and the model's tooltip say which models are affected. For Agent and Plan, a context window of **32768 tokens or more** is needed (the request alone starts with 15000 to 19000 characters of instructions).
 
@@ -40,9 +41,9 @@ npm ci
 npm run package
 ```
 
-In VS Code open the Extensions view, choose the `...` menu, then **Install from VSIX...** and pick `assistant-cabinet-coder-0.2.0.vsix`. Then open the chat, click the model name, pick the tab **Assistant Cabinet Coder** and choose a model.
+In VS Code open the Extensions view, choose the `...` menu, then **Install from VSIX...** and pick `assistant-cabinet-coder-0.2.1.vsix`. Then open the chat, click the model name, pick the tab **Assistant Cabinet Coder** and choose a model.
 
-On the computer that runs the server nothing needs to be typed except the key, when the server demands one. From another computer, set `assistantCabinetCoder.serverUrl`.
+On the computer that runs the server nothing needs to be typed except the key, when the server demands one: the extension reads the server's settings file and uses `http://127.0.0.1:<port>`, which the server always opens in plain HTTP, even when HTTPS is on for the network and even when the network address changes or the cable is unplugged. Only a server set to listen on all addresses (`0.0.0.0`) with HTTPS on is reached over HTTPS, on the first name of its certificate, with its own `ca.pem`. From another computer, set `assistantCabinetCoder.serverUrl`.
 
 ## Commands
 
@@ -61,12 +62,12 @@ All commands are in the Command Palette under the category **Assistant Cabinet C
 
 All settings are **machine-scoped**: a repository's `.vscode/settings.json` cannot point your key at another host.
 
-| Setting                                       | Default | Meaning                                                                                                                                                      |
-| --------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `assistantCabinetCoder.serverUrl`             | empty   | Address of the server, for example `http://192.168.1.83:8090`. Empty: use the server installed on this computer, if any.                                     |
-| `assistantCabinetCoder.caFile`                | empty   | The public authority file for HTTPS. Empty: for a server installed on this computer, its own `ca.pem`; otherwise the authorities your system already trusts. |
-| `assistantCabinetCoder.autoDiscover`          | `true`  | Read the settings file (`server.env`, which holds no secret) of a server installed on this computer to find its address.                                     |
-| `assistantCabinetCoder.requestTimeoutSeconds` | `900`   | How long to wait with no byte received before a request is abandoned. A long prompt delays the first byte, so the default is generous.                       |
+| Setting                                       | Default | Meaning                                                                                                                                                                                                   |
+| --------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assistantCabinetCoder.serverUrl`             | empty   | Address of the server, for example `http://192.168.1.83:8090`. Empty: use the server installed on this computer, if any.                                                                                  |
+| `assistantCabinetCoder.caFile`                | empty   | The public authority file, used for an HTTPS address only. Empty: for a server installed on this computer and reached over HTTPS, its own `ca.pem`; otherwise the authorities your system already trusts. |
+| `assistantCabinetCoder.autoDiscover`          | `true`  | Read the settings file (`server.env`, which holds no secret) of a server installed on this computer to find its address.                                                                                  |
+| `assistantCabinetCoder.requestTimeoutSeconds` | `900`   | How long to wait with no byte received before a request is abandoned. A long prompt delays the first byte, so the default is generous.                                                                    |
 
 ## Privacy and security
 

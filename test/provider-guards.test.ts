@@ -48,8 +48,8 @@ describe("the provider contribution", () => {
     assert.equal("chatAgents" in manifest.contributes, false);
   });
 
-  it("is version 0.2.0 and the README names the package file of that version", () => {
-    assert.equal(manifest.version, "0.2.0");
+  it("is version 0.2.1 and the README names the package file of that version", () => {
+    assert.equal(manifest.version, "0.2.1");
     assert.ok(readText("README.md").includes(`assistant-cabinet-coder-${manifest.version}.vsix`));
   });
 });

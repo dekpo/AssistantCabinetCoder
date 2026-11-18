@@ -139,26 +139,33 @@ function bracketed(host: string): string {
   return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 }
 
+/** The loopback address the gateway always listens on, in plain HTTP (server decision D-074). */
+const LOOPBACK = "127.0.0.1";
+
 /**
- * The address a client on this machine should use. A wildcard bind address is not an address one
- * can connect to: plain HTTP uses the loopback, HTTPS the first certificate name (the
- * certificate is valid only for those names).
+ * The address a client on this machine should use.
+ *
+ * A specific bind address (an IPv4 or IPv6 address, or a host name) gives the loopback in plain
+ * HTTP, whatever `TLS_MODE` says: since the server's decision D-074 (its Lot 27) the gateway
+ * always listens in plain HTTP on 127.0.0.1 and its port, and adds the network address, with
+ * HTTPS when it is on, only while that address exists on the machine. The loopback keeps working when the cable is
+ * unplugged or the address is moved (`cabinet config address`, D-081), and 127.0.0.1 is not among
+ * the certificate names. A wildcard bind address keeps the older rule, because there one listener
+ * speaks HTTPS everywhere when it is on: plain HTTP uses the loopback, HTTPS the first certificate
+ * name (the certificate is valid only for those names).
  */
 export function targetUrlFor(settings: ServerSettings): string | undefined {
-  const scheme = settings.tls ? "https:" : "http:";
-  let host = settings.bindAddress;
-  if (isWildcard(host)) {
+  let scheme = "http:";
+  let host = LOOPBACK;
+  if (isWildcard(settings.bindAddress) && settings.tls) {
     const first = settings.tlsNames[0];
-    if (settings.tls) {
-      if (first === undefined) {
-        return undefined;
-      }
-      host = first;
-    } else {
-      host = DEFAULT_BIND_ADDRESS;
+    if (first === undefined) {
+      return undefined;
     }
+    scheme = "https:";
+    host = bracketed(first);
   }
-  return normalizeServerUrl(`${scheme}//${bracketed(host)}:${settings.port}`);
+  return normalizeServerUrl(`${scheme}//${host}:${settings.port}`);
 }
 
 /**
@@ -215,8 +222,10 @@ export async function discoverServer(input: DiscoveryInput): Promise<DiscoveryOu
   if (url === undefined) {
     return { ok: false, reason: "no_tls_names" };
   }
-  const caFile =
-    caSetting ?? (parsed.settings.tls ? publicCaFile(input.platform, input.env) : undefined);
+  // An authority file applies to an HTTPS target only; the plain-HTTP loopback gets none.
+  const caFile = url.startsWith("https:")
+    ? (caSetting ?? publicCaFile(input.platform, input.env))
+    : undefined;
   return {
     ok: true,
     target: { url, caFile, source: "installation", authRequired: parsed.settings.authRequired },

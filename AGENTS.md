@@ -25,7 +25,7 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 
 ## Terminal
 
-- Commands written for the owner are Git Bash (POSIX) commands with `/c/Users/...` paths. No PowerShell, no `cmd`, except a step specific to Windows that Git Bash cannot do (say so in one line).
+- Commands written for the owner are POSIX shell commands: on macOS they run in Terminal (zsh) with `/Users/...` paths; on Windows they stay Git Bash with `/c/Users/...` paths. No PowerShell, no `cmd`, except a Windows-only step that Git Bash cannot do (say so in one line).
 
 ## Tests and quality
 

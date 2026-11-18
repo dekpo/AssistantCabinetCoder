@@ -44,7 +44,7 @@ describe("machine codes and sentences", () => {
   it("gives the exact administrator instruction for a server with the surface off", () => {
     assert.equal(
       describeCode("ide_surface_off"),
-      "The server has not turned on the editor surface. Ask the administrator to run: cabinet-server config set IDE_ENABLED=on, then cabinet-server restart.",
+      "The server has not turned on the editor surface. Ask the administrator to run: cabinet config set IDE_ENABLED=on, then cabinet restart.",
     );
   });
 

@@ -49,3 +49,9 @@ One numbered entry per mistake already made, written the moment it is found: wha
 28 October 2026, Lot X1b. Lesson 3 happened again: a test and the stub came out of the writing tool with an accented character where the source had an escape sequence, found at once by the check that lesson 3 prescribes (`grep -nP "[^\x00-\x7F]" -r src test`). The same session found that multi-line heredocs fail in the agent's shell tool ("unexpected EOF"), so files are written with the file-writing tool and small edits are made with the edit tool or with `node -e` scripts that build the backslash with `String.fromCharCode(92)`.
 
 **Rule:** run the check of lesson 3 after every file that may hold a non-ASCII character, before the first compile; never rely on a heredoc to write source or documents.
+
+## 9. The no-URL guard caught an address in a comment and in a template string
+
+18 November 2026, Lot X1c, first full run after the new target rule. The comment of `targetUrlFor` quoted the loopback address with its scheme, and the new code built the address from a template string that began with the scheme and two slashes; the guard that forbids URL literals in `src/` failed on both (lesson 4 again, in a new shape). The older code had avoided it by keeping the scheme in a variable.
+
+**Rule:** in `src/`, an address is never written with its scheme: a comment says "plain HTTP on 127.0.0.1 and its port", and code joins a scheme variable (`"http:"`) and the host (`${scheme}//${host}:${port}`). Run `node --test out/test/guards.test.js` right after touching a module that builds addresses.

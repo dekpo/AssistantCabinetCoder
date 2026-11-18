@@ -11,7 +11,7 @@ import type { NoServerReason } from "./discovery";
 /** One sentence per machine code. */
 export const CODE_MESSAGES: Record<MachineCode, string> = {
   ide_surface_off:
-    "The server has not turned on the editor surface. Ask the administrator to run: cabinet-server config set IDE_ENABLED=on, then cabinet-server restart.",
+    "The server has not turned on the editor surface. Ask the administrator to run: cabinet config set IDE_ENABLED=on, then cabinet restart.",
   key_needed:
     "The server needs a valid API key. Choose Set API Key and enter the key the administrator created for this computer.",
   unreachable:

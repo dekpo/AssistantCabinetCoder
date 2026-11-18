@@ -7,7 +7,7 @@ A human test is a script the owner plays on a real VS Code. It lives in `docs/hu
 - **Short.** At most about forty minutes. Prove what is new, leave out what an earlier real run already proved, and say what was left out.
 - **A script, not a list.** It runs top to bottom, in parts of at most about fifteen commands. Each part opens with "You start with" and closes with "You leave with".
 - **Name the terminal at the top of every part** ("Terminal: Git Bash"), even when it is the default.
-- **Git Bash only.** Commands use POSIX syntax and `/c/Users/...` paths. A step specific to Windows installation that Git Bash cannot do is the only exception: it is announced in one line and kept to that step.
+- **POSIX shell only.** On macOS commands run in Terminal (zsh) with `/Users/...` paths; on Windows they stay Git Bash with `/c/Users/...` paths. No PowerShell or `cmd`, except a Windows-only step that Git Bash cannot do: it is announced in one line and kept to that step.
 - **Every command in full, where it is asked.** Never "as before". Each command is in its own code block; the expected result is written outside the block. Editor steps name every click by its exact label; where the owner's wording differs, it is added in brackets.
 - **One backup at the start and one restore at the end** of anything the test changes (for example the user settings file).
 - **Expectations come from a run or from the machine's real state**, never from a neighbouring document.

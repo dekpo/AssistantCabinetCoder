@@ -31,7 +31,7 @@ describe("manifest", () => {
     assert.equal(manifest.name, "assistant-cabinet-coder");
     assert.equal(manifest.displayName, "Assistant Cabinet Coder");
     assert.equal(manifest.publisher, "assistantcabinet");
-    assert.equal(manifest.version, "0.2.0");
+    assert.equal(manifest.version, "0.2.1");
     assert.equal(manifest.main, "./out/src/extension.js");
     assert.deepEqual(manifest.categories, ["AI", "Chat"]);
   });
