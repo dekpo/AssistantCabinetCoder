@@ -21,7 +21,9 @@ Follows `docs/HUMAN-TESTS-PROTOCOL.md` and the lessons of `docs/LESSONS.md` (1, 
 **You start with:** every VS Code test window closed (your normal window may stay open), the repository on branch `feat/x1c-server-catch-up`.
 **You leave with:** the package built, four test folders, a picture and a note in the test workspace, a hash of your real settings noted.
 
-No VS Code update may be waiting (lesson 1). In your normal VS Code window open the menu **Code > Check for Updates...** and write what it says. If it offers **Restart to Update** (or another label that installs an update), do that first, wait until VS Code is back, then go on.
+No VS Code update may be waiting (lesson 1). On this Mac a waiting update shows as a blue **Update** button at the top right of the title bar (seen on 18 November 2026 with 1.146.0). If you see it, click it, let VS Code restart, and go on once it is back; otherwise open the menu **Code > Check for Updates...** and write what it says.
+
+**Do not install the package in your normal VS Code window:** Part 1 installs it in the test window only.
 
 ```bash
 "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --version
@@ -121,8 +123,8 @@ In that window, in this order:
 **You start with:** Part 1 done, the stub running.
 **You leave with:** one observation per mode, and a file created by the Agent step (or the tool's refusal).
 
-1. Open the chat view (the chat with the text field that reads **Build with Agent**, or the label you see). Under the text field, click the model button (the one that shows a model name). **Send me one screenshot of what opens.** Expected (not yet seen): a tab named **Assistant Cabinet Coder** next to a **GitHub Copilot** tab that asks to sign in; under ours, **cabinet-chat** and **cabinet-code**, and **not** `cabinet-plain` (it reports no tool calling, and the X0 run showed that VS Code lists no such model, in any mode). Hover **cabinet-code**: expected the tooltip lines `Context window: 131072 tokens.`, `Output ceiling: 16384 tokens.`, `Tool calling: yes. Image input: yes.` Write down where, if anywhere, you can reach a **Manage** entry for the provider and what it opens (expected: the menu of the extension with five entries; **not yet seen**).
-2. Pick **cabinet-code**. Make sure the mode button reads **Ask** (click it and choose **Ask** if not) and that the bottom left of the chat box says **Local**. Type this and send it:
+1. Open the chat view (the chat with the text field that reads **Build with Agent**, or the label you see). Under the text field, click the model button (the one that shows a model name). **Send me one screenshot of what opens.** Seen on 1.147.0 (18 November 2026): a list headed **Assistant Cabinet Coder** with a **+** beside it and no GitHub Copilot tab; **cabinet-chat** `33K`, **cabinet-code** and **cabinet-plain** (unlike X0 on 1.143.1, where a model without tool calling was not listed); a **>** at the right of each model. Hovering showed no tooltip. Click the **>** beside **cabinet-code** and write what opens. Seen on 1.147.0: a panel headed **cabinet-code** with the note "Changing these options mid-session resets the prompt cache and may increase cost." and one row, **Max context** `131K`; the tooltip lines of the extension (`Context window: ...`, `Tool calling: ...`) appear nowhere, so 1.147.0 does not show them. A **Manage** entry for the provider was not looked for in this run.
+2. Pick **cabinet-code**. Make sure the mode button reads **Ask** (click it and choose **Ask** if not) (on 1.147.0 there is no **Local** label: the row under the chat box reads **Copilot**, then **Interactive** and **Manual permissions**). Type this and send it:
 
    `[stub:text] hello`
 
@@ -132,27 +134,33 @@ In that window, in this order:
 
    `[stub:tool-call] read notes.txt`
 
-   Expected (not yet seen): the chat shows a tool step (a file-reading tool called by the stub, which picks the first tool whose name contains `read_file` and gives it the smallest valid arguments, so the file it reads may not exist), then the closing answer **Closing answer from the stub.** If VS Code asks you to allow the tool, allow it and write that it asked. Write the name of the tool shown in the step.
+   The stub calls the first tool whose name contains `read_file`, otherwise the first tool of the request, with the smallest valid arguments. Seen on 1.147.0: no tool named like `read_file` was offered, so the stub called a terminal tool with the command `stub`; VS Code showed **Run in terminal: stub** with **Allow Once**, **Skip** and **Explain**; after **Allow Once** the step read `/bin/bash: stub: command not found` (harmless), then **Closing answer from the stub.**
 
 4. Still in **Agent**, send:
 
    `[stub:tool-call:create_file] make a file`
 
-   Expected (not yet seen): a tool step that creates a file (name shown in the step); VS Code may ask to allow it, allow it; then **Closing answer from the stub.** The stub gives the tool the smallest valid arguments, so the file is called `stub` and holds the word `stub`, **or** the tool refuses the arguments (for example because the path is not absolute) and the chat still ends with the closing answer. Write which one happened. Then (window 2):
+   Seen on 1.147.0: no tool named `create_file` was offered either, so the stub fell back to the same terminal tool (**Run in terminal: stub**, **Allow Once**, `command not found`), then **Closing answer from the stub.**, with `Assistant Cabinet Coder/cabinet-code` under the answer. The real tool names of 1.147.0 are not measured by this test. Then (window 2):
 
    ```bash
    cat /Users/ydekpo/x1b-test-workspace/stub
    ```
 
-   Expected: `stub`, or "No such file or directory" if the tool refused.
+   Expected on 1.147.0: "No such file or directory" (no file tool was called).
 
-5. Switch the mode to **Plan** (the mode menu lists **Agent**, **Ask**, **Plan**; if **Plan** is not there, type `/plan` in the text field instead). Send:
+5. Choose **Plan**. On 1.147.0 it is not in the mode button: it replaces **Interactive** in the row under the chat box (that row read **Plan** after the owner chose it). Send:
 
    `[stub:text] outline the change`
 
-   Expected: **Hello from the stub, cafe.** and, under it, a **Proceed from Plan** row (as seen in X0). Write what you see.
+   Expected: **Hello from the stub, cafe.** Seen on 1.147.0: that answer, and no **Proceed from Plan** row (the X0 run on 1.143.1 showed one).
 
-**Paste back:** your answers to steps 1 to 5, the tool names of steps 3 and 4, and the output of `cat`.
+6. Pick **cabinet-plain** (the stub model without tool calling), leave the mode on **Agent**, and send:
+
+   `[stub:text] hi`
+
+   Seen on 1.147.0: the picker showed `8K` beside the name and the answer **Hello from the stub, cafe.** came with no error, so 1.147.0 lets a model without tool calling run in Agent mode.
+
+**Paste back:** your answers to steps 1 to 6, the tool names of steps 3 and 4, and the output of `cat`.
 
 ## Part 3: an image, the stop button, a dropped connection (about 7 minutes)
 
@@ -167,7 +175,9 @@ In that window, in this order:
 
    Expected (not yet seen): **Hello from the stub, cafe.** with no error. Write whether the picture showed in your message.
 
-2. Start another **new chat**, choose the model **cabinet-chat** (it reports no vision), and add `pic.png` the same way. Write **what happens**, exactly: either VS Code refuses or ignores the picture on its own, or it is attached; then type and send `[stub:text] look`. Expected (not yet seen) if it was attached: the message **This model cannot read images, so the request was not sent...** (ours), and no answer.
+   Seen on 1.147.0 (19 November 2026): Cmd+C on `pic.png` in the Explorer then Cmd+V put the text `pic.png` in the chat box, not a picture; dragging did the same; the **+** button answered **Could not attach pic.png.** The turn was sent with the path as text and answered **Hello from the stub, cafe.**, so no picture reached the provider. Repeated with a picture in the clipboard (a screen capture with Cmd+Ctrl+Shift+4 of a small harmless area, then Cmd+V): nothing happened in the chat box, although the extension reports image input for **cabinet-code** (the stub says vision yes). So on 1.147.0, signed out, no way of putting a picture in the chat was found, and the image path of the extension is not shown on this version (it stays covered by the unit tests and by the X0 run on 1.143.1).
+
+2. Start another **new chat**, choose the model **cabinet-chat** (it reports no vision), and add `pic.png` the same way. Write **what happens**, exactly: either VS Code refuses or ignores the picture on its own, or it is attached; then type and send `[stub:text] look`. Expected (not yet seen) if it was attached: the message **This model cannot read images, so the request was not sent...** (ours), and no answer. Seen on 1.147.0: the same as step 1 (the path as text, no picture), answered **Hello from the stub, cafe.**; the refusal was not reached.
 
 3. Start a **new chat**, model **cabinet-code**, mode **Ask**. Send:
 
@@ -175,11 +185,15 @@ In that window, in this order:
 
    Words appear one after the other (`word0 word1 ...`, about four a second). After about five seconds click the **stop button** (it replaces the send button while an answer is coming; if you see another label, write it). Expected: the words stop at once and no error is shown. Write how many seconds it took the words to stop.
 
+   Seen on 1.147.0: the words stopped on screen at `word212` with no error, but the log line read `call=chat status=200 ms=60256 alias=cabinet-code tool_calls=0`: the full sixty seconds of the stub (240 words at 250 ms), with no `code=cancelled`, so the request was not cancelled on the extension's side. Repeated with the stop button clicked at `word20`: the screen stopped at `word21`, and the log line read `ms=60254` with no `code=cancelled` again. So on 1.147.0 the stop button stops the display only: the editor does not cancel the request it gave the extension, and the server goes on producing the whole answer. The extension's own side (the editor's cancellation closes the connection and logs `code=cancelled`) was walked by the agent in Lot X1b with a stand-in editor. Look at the duration in the log, not at the screen.
+
 4. Send:
 
    `[stub:cut] go`
 
    Expected (not yet seen): the word **Partial** appears and then the message **The server's answer stopped before it was complete.**
+
+   Seen on 1.147.0: **Partial**, then the editor's own sentence in italics, **Response interrupted: the model stopped before finishing. Try again.**, in place of ours; the log line read `code=stream_truncated`, so the extension reported the right code and the editor chose its own wording.
 
 5. Open the Command Palette (Cmd+Shift+P), run **Assistant Cabinet Coder: Show Output**. Click in the text, Cmd+A, Cmd+C, and paste the lines into the chat with me. Expected: one line per call, like `2026-11-18T... call=chat status=200 ms=12 alias=cabinet-code prompt_tokens=... completion_tokens=... tool_calls=0`; the stopped answer shows `code=cancelled`, the dropped one `code=stream_truncated`, the refused picture (if it was sent) `code=provider_capability_unsupported`. **No sentence of yours, no word of an answer, no file name, no address, no key.** Tell me if any line holds anything else.
 
@@ -201,9 +215,17 @@ cd /Users/ydekpo/Documents/CURSOR/AssistantCabinetCoder && npm run stub -- --mod
 ```
 
 1. Wait a few seconds. Expected: the status bar reads **Cabinet: key needed** (if it still reads connected, run **Assistant Cabinet Coder: Test Connection** once). Open the model button of the chat again. Expected (not yet seen): no model under **Assistant Cabinet Coder**, and possibly a message offering **Set API Key**. Write what you see.
+
+   Seen on 1.147.0 (19 November 2026), the stub started by the agent: **Test Connection** opened the dialog **The server is reachable but not ready** (Server: `http://127.0.0.1:8099`; Health check: the server answered; The server needs a valid API key...) with **Cancel** and **Set API Key**; the status bar read **Cabinet: key needed**; the log read `call=models status=401 code=key_needed`. The picker still listed the three models under **Pinned** (the editor kept the earlier list).
+
 2. Run **Assistant Cabinet Coder: Set API Key** from the Command Palette, type `letmein-123`, press Enter. Expected: **The API key was saved in the secret store.**, the status bar changes to **Cabinet: connected**, and the models come back in the picker **without a reload**. Write whether they did, and how long it took.
+
+   Seen on 1.147.0: the **Set API Key** button of that dialog opened the same masked input ("API key for this server"); after Enter, **The API key was saved in the secret store.**, the status bar **Cabinet: connected**, and the models were in the picker at once, with no reload (log: two `call=models status=200`).
+
 3. In a new chat with **cabinet-code**, send `[stub:text] hi`. Expected: **Hello from the stub, cafe.**
 4. Run **Set API Key** again with a wrong key, `wrong-key-999`. Send `[stub:text] hi` in the same chat. Expected (not yet seen): the message beginning **The server needs a valid API key.** in the chat, and the status bar going to **Cabinet: key needed**.
+
+   Seen on 1.147.0: after the wrong key was saved, the status bar went to **Cabinet: key needed** and the cabinet models left the picker at once (the model button read **Models**, under the editor's box **Choose how you want to use Copilot.** with **Add Models** and **Sign In**). Sending the message then opened the editor's **Sign in to use GitHub Copilot** window (closed with its **X**, no sign-in). No chat request reached the extension, so our sentence was not shown: the status bar and the **Test Connection** dialog are the only places that name the key.
 
 ### 4b. The surface is turned off
 
@@ -214,6 +236,8 @@ cd /Users/ydekpo/Documents/CURSOR/AssistantCabinetCoder && npm run stub -- --mod
 ```
 
 Wait a few seconds. Expected: status bar **Cabinet: off** (or after one **Test Connection**). Open the model button: expected (not yet seen) that no model is listed under **Assistant Cabinet Coder** (it may take the 60 seconds of the cache, or the next change of a setting: write how long it took). Send `[stub:text] hi` in the old chat: expected the message **The server has not turned on the editor surface. Ask the administrator to run: cabinet config set IDE_ENABLED=on, then cabinet restart.**
+
+Seen on 1.147.0 (19 November 2026), the stub started by the agent: **Test Connection** opened **The server is reachable but not ready** with `Server: http://127.0.0.1:8099`, `Health check: the server answered.` and the sentence above word for word (the new `cabinet` wording of Lot X1c), with **OK**; the status bar read **Cabinet: off**; the picker held no cabinet model (only the **GitHub Copilot** tab with **Sign in to see available models.**), so nothing was sent (lesson 14). The chat still showed the editor's line **Authentication is required to start a session. Please sign in and try again.** under the message of Part 4a step 4.
 
 ### 4c. A chat over HTTPS
 
@@ -233,6 +257,8 @@ printf '{\n  "assistantCabinetCoder.serverUrl": "https://127.0.0.1:8099"\n}\n' >
 
 1. Expected: status bar **Cabinet: certificate**. Run **Assistant Cabinet Coder: Select CA File**, pick `/Users/ydekpo/x1b-ca/ca.pem` (the dialog lists `.pem`, `.crt` and `.cer` files; Cmd+Shift+G lets you type the folder). Expected: **The authority file was set.** and the status bar **Cabinet: connected**.
 2. In a new chat with **cabinet-code**, send `[stub:text] hi over https`. Expected: **Hello from the stub, cafe.**
+
+Seen on 1.147.0 (19 November 2026), the stub and the settings file set by the agent: the status bar read **Cabinet: certificate**; **Test Connection** opened **Cannot reach the server** (`Server: https://127.0.0.1:8099`, `Health check: failed.`, the sentence about the untrusted certificate, `Technical detail: UNABLE_TO_VERIFY_LEAF_SIGNATURE`) with **Cancel** and **Select CA File**; that button opened the macOS file dialog, `ca.pem` was picked with **Use This File**; **The authority file was set.** and **Cabinet: connected**; the three models came back in the picker, and the HTTPS turn answered **Hello from the stub, cafe.** (The wrong key of 4a was still stored; this stub asks for no key.)
 
 Ctrl+C in window 1.
 
@@ -262,9 +288,9 @@ printf '{}\n' > /Users/ydekpo/x1b-vscode-data/User/settings.json
 ```
 
 1. **The loopback rule.** Run **Assistant Cabinet Coder: Test Connection**. Expected (not yet seen, from the code of the report and the server's real answer of 18 November 2026): a dialog headed **Connected: 21 models available**, whose text begins `Server: http://127.0.0.1:1975` (**not** `192.168.75.1`), then `Health check: the server answered.`, `Editor interface version: 1`, `Features: agents yes, document analysis no, image description no`, `Models (21):` and one line per model, for example `- qwen2.5-coder:14b: window 32768 tokens, output up to 16384 tokens, tools yes, vision no`. No `Note:` line (every model reports tool calling). Write the first line and the headline you see. The status bar reads **Cabinet: connected**.
-2. Open the model button. Expected (not yet seen): under **Assistant Cabinet Coder** the Mac's models, among them **qwen2.5-coder:7b** and **qwen2.5-coder:14b** (the picker may list fewer than 21 if VS Code hides some: write how many you see, no screenshot needed). Hover **qwen2.5-coder:14b**: expected `Context window: 32768 tokens.`, `Output ceiling: 16384 tokens.`, `Tool calling: yes. Image input: no.`
+2. Open the model button. Expected (not yet seen): under **Assistant Cabinet Coder** the Mac's models, among them **qwen2.5-coder:7b** and **qwen2.5-coder:14b** (the picker may list fewer than 21 if VS Code hides some: write how many you see, no screenshot needed). Click the **>** beside **qwen2.5-coder:14b** (1.147.0 shows no tooltip, Part 2 step 1): expected **Max context** `33K`.
 3. A new chat, model **qwen2.5-coder:14b** (or the one you prefer, then write which), mode **Ask**. Send `say hello in three words`. Write whether an answer arrived and roughly how many seconds it took (the first answer loads the model and is slower).
-4. Same model, mode **Agent**. Send `create a file named hello.txt in this folder that contains the word hello`. Allow the tool when VS Code asks. Write what it did (tool steps, approvals, errors). Then (window 2):
+4. Same model, mode **Agent**. Send `create a file named hello.txt in this folder that contains the word hello`. When VS Code asks, allow only a tool that creates or edits a file (**Allow Once**); if it proposes **Run in terminal**, click **Skip** (lesson 11). Write what it did (tool steps, approvals, errors). Then (window 2):
 
    ```bash
    cat /Users/ydekpo/x1b-test-workspace/hello.txt
@@ -273,6 +299,14 @@ printf '{}\n' > /Users/ydekpo/x1b-vscode-data/User/settings.json
    Expected: `hello` (or "No such file or directory" if the model did not manage it: then it is a finding about the model, unless a message names a code).
 
 5. Look at the status bar: write its label.
+
+Seen on 1.147.0 (19 November 2026), the curl check and the empty settings file done by the agent (curl answered `200`):
+
+- Step 1 matched: **Connected: 21 models available**, first line `Server: http://127.0.0.1:1975` (not the network address), `Health check: the server answered.`, `Editor interface version: 1`, `Features: agents yes, document analysis no, image description no`, `Models (21):` with one line per model, among them `qwen2.5-coder:14b: window 32768 tokens, output up to 16384 tokens, tools yes, vision no`; no `Note:` line. Status bar **Cabinet: connected**. The loopback rule of Lot X1c is shown on the real server.
+- Step 2 matched: the 21 models listed under **Assistant Cabinet Coder**, from `gemma4:12b` to `qwen3:1.7b`; **qwen2.5-coder:14b** `33K`.
+- Step 3: an answer came in about fifteen seconds (the model was loaded first), but it was a tool call written as plain text (a block of JSON naming a tool `ask_user` with its arguments), not a reply and not a real tool call. A finding about the model or the server's handling of its tool calls, not about the extension: no message named a code.
+- Step 4 deviated: at once, with no request sent, the editor's own message **Error: (query) No response was returned because static system messages and tool definitions exceed this model's context budget.** with **Try Again**. The extension reports an input budget of window minus output ceiling, 32768 - 16384 = 16384 tokens, and its token estimate errs high on purpose (3 characters per token before calibration); on 1.147.0 the Agent prompt and its tool definitions do not fit in that budget. Every model of this server has a window of at most 32768, so **Agent mode cannot start with any of them on 1.147.0** (it did with the stub's 131072-token **cabinet-code**). `cat` answered "No such file or directory". Lesson 15.
+- Step 5: **Cabinet: connected**.
 
 **Paste back:** your answers to steps 1 to 5 and the output of `cat`.
 
@@ -308,7 +342,7 @@ Version 0.2.1 never reached your normal profile (lesson 2):
 ls /Users/ydekpo/.vscode/extensions | grep -i cabinet
 ```
 
-Expected: one line, `assistantcabinet.assistant-cabinet-coder-0.2.0` (installed on 6 November 2026 for the icon test), and no line for `0.2.1`.
+Expected: one line, `assistantcabinet.assistant-cabinet-coder-0.2.0` (installed on 6 November 2026 for the icon test), and no line for `0.2.1`. Seen in this run: the owner had installed 0.2.1 in the normal profile before Part 0 (lesson 10) and chose to keep it, so the line read `assistantcabinet.assistant-cabinet-coder-0.2.1` (the 0.2.0 folder was gone by 19 November 2026); the normal profile is not part of this test's evidence.
 
 The extensions folder of the test profile holds no copy any more:
 
@@ -316,7 +350,7 @@ The extensions folder of the test profile holds no copy any more:
 ls /Users/ydekpo/x1b-vscode-ext
 ```
 
-Expected: no `assistantcabinet.assistant-cabinet-coder-...` folder (only VS Code's own bookkeeping file, if any).
+Expected: no `assistantcabinet.assistant-cabinet-coder-...` folder (only VS Code's own bookkeeping file, if any). Seen on 1.147.0 (19 November 2026): the folder `assistantcabinet.assistant-cabinet-coder-0.2.1` was still there, beside `extensions.json` (an empty list) and `.obsolete` (which names that folder): VS Code removes an uninstalled extension's folder only at its next start, so the uninstall is proved by those two files, not by the folder being gone (lesson 16). Step 1: **Uninstall** asked for no reload; after Cmd+Q the Dock still showed a VS Code icon, but no process of the test instance was left (checked by the agent).
 
 The proof that your real settings are untouched (the "after"; the hash must equal the one of Part 0):
 
@@ -340,8 +374,32 @@ Walked by the agent (Lot X1b, 28 October 2026, on Windows): the compiled extensi
 
 Walked by the agent (Lot X1c, 18 November 2026, on this Mac): the `.vsix` builds (19 files, 46.67 KB); the compiled discovery, run against a copy of the Mac's real `server.env` (`SERVER_BIND_ADDRESS=192.168.75.1`, `SERVER_PORT=1975`, `AUTH_MODE=off`), returns `http://127.0.0.1:1975` with no authority file and reads only `server.env`; on that target `GET /health` answered `200` and `GET /ide/v1/models` answered `200` with `ide_api` 1, 21 models (all with tool calling; `qwen2.5-coder:7b` and `qwen2.5-coder:14b` with a window of 32768 and a ceiling of 16384), and the features agents yes, document analysis no, image description no.
 
-Only you can walk: everything in the VS Code window (the picker and its tabs, the tooltips, the modes, the tool steps and their approvals, the pasted picture, the stop button, the messages in the chat, the status bar after each change, the file dialog, the Test Connection dialog on the Mac's server), the real shape of the editor's own messages on 1.146.0, and the answers of a real model. Not walked by anyone: remote windows, a PDF, Windows with this version.
+Only you can walk: everything in the VS Code window (the picker and its tabs, the tooltips, the modes, the tool steps and their approvals, the pasted picture, the stop button, the messages in the chat, the status bar after each change, the file dialog, the Test Connection dialog on the Mac's server), the real shape of the editor's own messages on 1.147.0, and the answers of a real model. Not walked by anyone: remote windows, a PDF, Windows with this version.
 
 ## Run record
 
-To be appended by the agent after your run (date and VS Code version, what matched, what deviated, what was not shown).
+- Date and VS Code version: 18 and 19 November 2026, VS Code 1.147.0 (updated from 1.146.0 before Part 1), macOS on the owner's Mac, signed out of GitHub, package `assistant-cabinet-coder-0.2.1.vsix` in a throw-away profile; the Mac's server package 0.1.11 with `IDE_ENABLED=on`. The agent started and restarted the stub and wrote the test profile's settings file itself; the owner played every editor step. This run covers Lot X1b (first run on a real editor) and Lot X1c.
+- Matched:
+  - Parts 0 and 1: the test profile, the install from the `.vsix`, **Cabinet: connected** on the stub.
+  - Part 2: **Ask** with **cabinet-code** (one answer, no error); **Agent** turns ending with the stub's closing answer; **Plan**, chosen in the row under the chat box, answering.
+  - Part 3: the dropped connection logged `code=stream_truncated`, and the log held codes, durations and counts only, never a sentence, a word of an answer, a file name or a key.
+  - Part 4a: **Test Connection** naming the missing key with a **Set API Key** button; the key saved in the secret store; the models back with no reload; a turn answered.
+  - Part 4b: the turned-off surface explained word for word with the new `cabinet config set IDE_ENABLED=on, then cabinet restart` sentence; **Cabinet: off**; no model listed.
+  - Part 4c: the untrusted certificate explained with a **Select CA File** button; `ca.pem` picked in the macOS dialog; **Cabinet: connected**; a turn over HTTPS answered.
+  - Part 5 steps 1, 2 and 5: with an empty settings file the extension found the Mac's server by itself on `http://127.0.0.1:1975`, not on `192.168.75.1` (the loopback rule of Lot X1c, decision D-018); **Connected: 21 models available** with the right features and limits; the 21 models in the picker; **Cabinet: connected**.
+  - Part 6: no key in any file of the test profile; the real settings file's hash unchanged (`90df2fbc...6143` before and after).
+- Deviated:
+  - Part 0: 0.2.1 had been installed in the normal profile and a VS Code update was pending (lesson 10); the owner updated VS Code and kept 0.2.1 in the normal profile.
+  - Part 2 step 1: a model without tool calling (**cabinet-plain**) is listed, unlike 1.143.1; the editor shows no tooltip of the extension, and the **>** beside a model opens only **Max context**; no **Local** label. The test was corrected.
+  - Part 2 steps 3 and 4: no tool named like `read_file` or `create_file` was offered on 1.147.0, so the stub fell back to a terminal tool and VS Code asked to run the command `stub` (allowed once, harmless: "command not found"); no file was created. The test now says to **Skip** a terminal tool (lesson 11).
+  - Part 2 step 5: no **Proceed from Plan** row.
+  - Part 2 step 6 (added): **cabinet-plain** answered in Agent mode with no error.
+  - Part 3 steps 1 and 2: no picture could be put in the chat (copying the file pasted its name, dragging did the same, the **+** button said "Could not attach pic.png.", a pasted screen capture did nothing), so the image path and the refusal for a model without vision were not reached (lesson 12).
+  - Part 3 step 3: the stop button stopped the screen only; the log showed the full sixty seconds twice (`ms=60256`, `ms=60254`) with no `code=cancelled`: VS Code 1.147.0 did not cancel the request it gave the extension (lesson 13).
+  - Part 3 step 4: the editor showed its own sentence, **Response interrupted: the model stopped before finishing. Try again.**, in place of ours (our code was logged).
+  - Part 4a step 1: the picker still listed the models after the key was refused.
+  - Part 4a step 4: after a wrong key the models left the picker, the message reached no model, and the editor opened its own GitHub sign-in (closed); our key sentence was not shown in the chat (lesson 14).
+  - Part 5 step 3: **qwen2.5-coder:14b** answered in about fifteen seconds with a tool call written as plain JSON text: a finding about the model or the server, no code named.
+  - Part 5 step 4: Agent mode refused at once with the editor's message "static system messages and tool definitions exceed this model's context budget"; the extension reports 16384 input tokens for a 32768-token model and the Agent prompt of 1.147.0 does not fit; no file was created (lesson 15).
+  - Part 6: the uninstalled extension's folder stayed on disk, marked in `.obsolete`; the Dock kept an icon although the test instance had quit (lesson 16).
+- Not shown: an image reaching a model, and the refusal of an image for a model without vision (no way of attaching a picture on 1.147.0 signed out); the extension's handling of a real cancellation (the editor never cancelled); our wording for a dropped stream and for a wrong key inside the chat; a **Manage** entry for the provider (not looked for); an Agent turn with a real model (refused by the editor, see above); a real tool call by a real model; remote windows, a PDF, Windows with this version.

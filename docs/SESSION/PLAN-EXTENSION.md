@@ -44,14 +44,15 @@ The first plan had four lots (X1 at 14 to 18 hours and X2 at 7 to 10 hours were 
 | **X3** | `feat/x3-agents` | **Agents**: five shipped agents, sync of the server's catalogue (preview, marker, never a silent overwrite) | 5 to 7 h | about 25 min | Lot 16 (or the stub) |
 | **X4** | `feat/x4-release` | **Robustness, security, `.vsix` release**, final README, full human test | 5 to 7 h | about 60 min | all |
 
-### State and rolling plan (revised 18 November 2026)
+### State and rolling plan (revised 19 November 2026)
 
-| Lot | Branch | State on 18 November 2026 |
+| Lot | Branch | State on 19 November 2026 |
 | --- | --- | --- |
 | setup, X0, X1a | `docs/setup`, `feat/x0-spike`, `feat/x1a-foundations` | done, accepted, pushed |
-| X1b | `feat/x1b-provider` | built (238 tests), **human test never played** |
+| X1b | `feat/x1b-provider` | built (238 tests); its human test was played with X1c, see below |
 | Icon | `feat/logo-icon` (from X1b) | done, tested on the Mac on 6 November 2026, pushed (`9d1abfc`, 240 tests) |
-| **X1c** (new) | `feat/x1c-server-catch-up` (from `feat/logo-icon`) | to do: the loopback address of the server's D-074, the command `cabinet` (D-067), version 0.2.1, then the X1b human test on the Mac. About 2 h + 45 min of test. Prompt: `SESSION-X1c-server-catch-up.md` |
+| X1c | `feat/x1c-server-catch-up` (from `feat/logo-icon`) | done (253 tests, version 0.2.1); the X1b human test was played on the Mac on 18 and 19 November 2026 (VS Code 1.147.0): discovery on `127.0.0.1:1975`, the chat, a key, HTTPS and the turned-off surface work; Agent mode did not start with the Mac's 32768-token models, no picture could be attached, the stop button does not cancel (run record of `docs/human-tests/X1b-chat.md`) |
+| **X1d** (new) | `feat/x1d-agent-budget` (from `feat/x1c-server-catch-up`) | to do (decision D-022): measure what Agent mode needs on 1.147.0, then adjust the input budget or the token estimate, version 0.2.2, a real Agent turn on the Mac's server. About 3 h + 20 min of test. Prompt: `SESSION-X1d-agent-budget.md` |
 | X2a, X2b, X3, X4 | as in the table below | planned; each prompt carries a status note and is **aligned at the end of the previous lot** (`COMMON-RULES.md` section 9). X2a holds an open question for the owner (the editor already has its own `view_image` tool) |
 
 The server side of `/ide/v1` is complete (server Lots 15a to 18, installed on the Mac as package 0.1.11 and on Windows as MSI 0.1.28 or newer); only the optional Lot 19 (editor-only keys) is not built. What remains on the server is **settings the owner turns on** (`IDE_ENABLED`, `IDE_DOCUMENT_ANALYSIS`, `IDE_VISION_ALIAS`) and **a catalogue file** (`ide-agents.json`), listed per lot in `COMMON-RULES.md` section 7, with the warnings about the desktop application that shares the server. The tower `http://192.168.1.83:8090` named below no longer exists.

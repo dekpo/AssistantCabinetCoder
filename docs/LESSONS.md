@@ -55,3 +55,45 @@ One numbered entry per mistake already made, written the moment it is found: wha
 18 November 2026, Lot X1c, first full run after the new target rule. The comment of `targetUrlFor` quoted the loopback address with its scheme, and the new code built the address from a template string that began with the scheme and two slashes; the guard that forbids URL literals in `src/` failed on both (lesson 4 again, in a new shape). The older code had avoided it by keeping the scheme in a variable.
 
 **Rule:** in `src/`, an address is never written with its scheme: a comment says "plain HTTP on 127.0.0.1 and its port", and code joins a scheme variable (`"http:"`) and the host (`${scheme}//${host}:${port}`). Run `node --test out/test/guards.test.js` right after touching a module that builds addresses.
+
+## 10. The package was installed in the owner's normal window before the test began, and a pending update showed as a title-bar button
+
+18 November 2026, Lot X1c, between Part 0 and Part 1 of `docs/human-tests/X1b-chat.md` on the Mac. The report of Part A said the package was built; nothing said it would be installed only in the test window, so the owner uninstalled 0.2.0 from the normal profile and installed 0.2.1 there. The screenshots also showed a blue **Update** button in the title bar: on macOS that is how VS Code 1.146.0 shows a downloaded update (lesson 1's waiting installer, in another shape). The extension page kept showing the old README after the reinstall although the installed file was the new one.
+
+**Rule:** when a package is built for a human test, say in the same message where it will be installed (the test window only) and that the normal window is not to be touched. On macOS, the check of lesson 1 looks for the **Update** button of the title bar as well as **Code > Check for Updates...**. A detail page of an extension is not evidence of the installed files: read the installed folder instead.
+
+## 11. The stub's fallback tool ran a terminal command on the owner's Mac
+
+18 November 2026, Part 2 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0. The script promised a file-reading tool and a file-creating tool, from the tool names measured on 1.143.1. On 1.147.0 the Agent request held no tool named like `read_file` or `create_file`, so the stub took the first tool of the list, a terminal tool, and asked VS Code to run the command `stub`. VS Code asked for approval, the owner allowed it, and the shell answered "command not found". Harmless, but a test must never let the stub's fallback choose what runs on the owner's machine.
+
+**Rule:** before a human test that makes the stub call an editor tool, check that the tool names it relies on are still those of the VS Code version being tested; the step says which tool will run, that a terminal tool must be refused with **Skip**, and that only a read or create tool is allowed.
+
+## 12. Copying a picture file in the Explorer pasted its name, not the picture
+
+19 November 2026, Part 3 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0 on macOS. The script said to select `pic.png` in the Explorer, press Cmd+C and paste it into the chat, a way taken from the X0 run on Windows, where the picture was copied from the editor. On the Mac the chat box received the text `pic.png`; dragging the file did the same, and the **+** button answered "Could not attach pic.png." No picture reached the provider, so the image steps proved nothing and the log could not show it. A screen capture pasted with Cmd+V did nothing either: on 1.147.0, signed out, the chat took no picture at all, even for a model that reports image input.
+
+**Rule:** a human test that needs a picture in the chat puts a real picture in the clipboard (on macOS a screen capture of a small harmless area with Cmd+Ctrl+Shift+4), and the step says how to tell it worked: a picture shows in the message, and the log line's prompt tokens grow. A way of attaching measured on one system is written as unmeasured on another.
+
+## 13. The stop button stopped the screen, not the request
+
+19 November 2026, Part 3 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0. The script expected the words to stop at once and the log to show `code=cancelled`. The words stopped on screen, but twice the log line showed the stub's full sixty seconds (`ms=60256`, then `ms=60254` with the stop clicked at `word20`) and no code: the editor never cancelled the request it had given the extension, so the server went on producing the answer. The extension's side had been proved only with a stand-in editor, which cancels when told to.
+
+**Rule:** a stop or cancel step is judged on the log line (its duration and its code), never on the screen, and the stub's scenario is long enough for the difference to show. A behaviour proved with a stand-in editor is written as "not yet seen in the real editor" until a run shows it.
+
+## 14. After a wrong key the models left the picker, and the editor offered its own sign-in
+
+19 November 2026, Part 4a of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0. The script expected our sentence **The server needs a valid API key.** in the chat after a wrong key. Saving the key made the extension read the model list again; the server refused it, the list became empty, and the editor removed the models from the picker before anything was sent. The message then went to no model, and the editor opened its own **Sign in to use GitHub Copilot** window. Only the status bar (**Cabinet: key needed**) and the **Test Connection** dialog named the key.
+
+**Rule:** a failure that empties the model list is checked in the status bar, the picker and **Test Connection**, never by sending a message to a model that may have gone. A step that may open the editor's sign-in says to close it with its **X**. Whether the extension should tell the user itself when the list goes empty because of a key is a question for a later lot, not a test fix.
+
+## 15. Agent mode refused the Mac's code model before sending anything
+
+19 November 2026, Part 5 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0, the Mac's own server. The script took a 32768-token window as enough for Agent mode, from a server document and the X0 run on 1.143.1. On 1.147.0 the editor answered at once, without calling the extension, "static system messages and tool definitions exceed this model's context budget". The extension gives the editor an input budget of window minus output ceiling (here 16384 tokens) and a token estimate that errs high on purpose; the Agent prompt of this editor version, with its tool definitions, does not fit. The stub's 131072-token model had hidden it all through Parts 2 to 4.
+
+**Rule:** a human test runs at least one Agent turn with a real model of the target server before it is called passed, because a stub with a large window proves nothing about the budget. How the input budget and the token estimate should be set for 32768-token models is a product question for its own lot, measured on the editor version in use, not a test fix.
+
+## 16. The uninstalled extension's folder was still on disk
+
+19 November 2026, Part 6 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0 on macOS. The script expected the test profile's extensions folder to hold no copy after **Uninstall** and Cmd+Q. The folder was still there: VS Code had emptied `extensions.json` and named the folder in `.obsolete`, and deletes it only at its next start, which never comes for a throw-away profile. The Dock also kept a VS Code icon after the test instance quit, although no process of it was left.
+
+**Rule:** an uninstall is checked in `extensions.json` and `.obsolete`, not by the folder being gone; that the test instance has quit is checked by its processes, not by the Dock.

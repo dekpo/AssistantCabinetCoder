@@ -119,3 +119,15 @@ Existing tests changed, as named exceptions of the lot: in `test/discovery.test.
 ## D-019 The owner works on a Mac: commands for the owner are POSIX shell commands, zsh on macOS
 
 18 November 2026, owner's agreement to Lot X1c. The owner's machine is a Mac since 6 November 2026. `AGENTS.md` ("Terminal") and `docs/HUMAN-TESTS-PROTOCOL.md` (the rule that was "Git Bash only") now say: commands written for the owner are POSIX shell commands; on macOS they run in Terminal (zsh) with `/Users/...` paths; on Windows they stay Git Bash with `/c/Users/...` paths; no PowerShell or `cmd` except a Windows-only step that Git Bash cannot do. Frozen records keep the commands they were played with.
+
+## D-020 The editor surface of the owner's Mac server stays on
+
+19 November 2026, owner's decision at the end of the X1b and X1c human test. `IDE_ENABLED=on` stays set on the Mac's server (package 0.1.11, `AUTH_MODE=off`), so the next lots' real tests can use it without a server step. The owner was told that while it is on, anyone who reaches port 1975 on the network can use the editor surface without a key. Turning it off is the owner's step (`sudo cabinet config set IDE_ENABLED=off`, then `sudo cabinet restart`).
+
+## D-021 The session prompts stay tracked
+
+19 November 2026, owner's decision, ending the temporary arrangement of 30 October 2026. `docs/SESSION/` (the lot prompts, `COMMON-RULES.md`, `PLAN-EXTENSION.md`) stays tracked by git, so the plan travels with the branch. `.gitignore` no longer carries the TEMPORARY comment; it keeps ignoring loose `docs/SESSION-*.md` files at the top of `docs/`. `docs/HANDOVER.md` was deleted: the work has resumed and the X1b run record is written. The line of `AGENTS.md` that listed session prompts among local-only files now says they are tracked.
+
+## D-022 A short Lot X1d comes before Lot X2a: the input budget for Agent mode
+
+19 November 2026, owner's decision after Part 5 of the human test. On VS Code 1.147.0 Agent mode refused the Mac's `qwen2.5-coder:14b` before sending anything ("static system messages and tool definitions exceed this model's context budget"). Every model of that server has a window of at most 32768 tokens, and the extension reports `maxInputTokens` as the window minus the ceiling (16384 for those models, decision D-016), with an estimate that errs high (3 characters per token before calibration). Lot X1d measures what the editor counts and needs, and adjusts how the input budget and the estimate are reported, with a real Agent turn on the Mac's server as its proof. Lot X2a then starts from the X1d branch.

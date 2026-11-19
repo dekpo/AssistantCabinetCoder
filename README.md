@@ -2,7 +2,7 @@
 
 A VS Code extension that gives the editor's chat the models of an **Assistant Cabinet server** running on your own network. Nothing is sent anywhere else: no telemetry, no other host, no cloud account.
 
-**Status: version 0.2.1, the models are in the chat.** The server's models appear in the chat's model picker, under the provider **Assistant Cabinet Coder**, and work in **Ask**, **Agent** and **Plan** (Session Target **Local**), with tool calls and pasted images. The tools of the next releases (`cabinet_view_image`, `cabinet_read_document`) and the synced agent files are not in this version.
+**Status: version 0.2.1, the models are in the chat.** The server's models appear in the chat's model picker, under the provider **Assistant Cabinet Coder**, and work in **Ask**, **Agent** and **Plan**, with tool calls and pasted images. On VS Code 1.147.0, Agent does not start with a model whose window is 32768 tokens or less (Plan with such a model is untested), and no picture can be attached: see **Known limits**. The tools of the next releases (`cabinet_view_image`, `cabinet_read_document`) and the synced agent files are not in this version.
 
 ## What it needs
 
@@ -11,24 +11,24 @@ A VS Code extension that gives the editor's chat the models of an **Assistant Ca
 - An Assistant Cabinet server whose administrator has run `cabinet config set IDE_ENABLED=on` and `cabinet restart` (on macOS both are run with `sudo`). Without it the extension says so and offers no model.
 - On the computer that runs the server, a server that always listens on `127.0.0.1` (server Lot 27 or newer: the macOS package 0.1.11 and the Windows installer 0.1.28 or newer have it). An older server listens only on its network address, which discovery no longer uses: set `assistantCabinetCoder.serverUrl` for it.
 - A key, when the server asks for one (the **Set API Key** command).
-- Models that report **tool calling**: every chat mode sends tools, and VS Code does not list a model without it. **Test Connection** and the model's tooltip say which models are affected. For Agent and Plan, a context window of **32768 tokens or more** is needed (the request alone starts with 15000 to 19000 characters of instructions).
+- Models that report **tool calling**: every chat mode sends tools. VS Code 1.143.1 does not list a model without it; 1.147.0 lists it. **Test Connection** says which models are affected. For Agent and Plan, VS Code 1.143.1 needs a context window of **32768 tokens or more** (the request alone starts with 15000 to 19000 characters of instructions); on VS Code 1.147.0 Agent needs more than a 32768-token model offers (see **Known limits**; Plan was not measured).
 
 ## What it does
 
 - Finds your server: the address you set, or, on the machine where the server is installed, the address in the server's settings file.
 - Talks to it over HTTP, or over HTTPS with the authority file (`ca.pem`) the administrator gave you, with an API key when the server asks for one.
-- Lists the server's models in the chat picker (the tooltip gives the window, the output ceiling, tool calling and vision), refreshes the list when the address, the key or the authority changes, and keeps the last good list when the server does not answer.
+- Lists the server's models in the chat picker (VS Code 1.143.1 shows a tooltip with the window, the output ceiling, tool calling and vision; 1.147.0 shows only the context size), refreshes the list when the address, the key or the authority changes, and keeps the last good list when the server does not answer.
 - Sends each chat request to the server and streams the answer back, including tool calls: the editor runs the tool (reading, editing, searching, the terminal) with your approvals and sends the result on.
 - **Test Connection** says in plain words whether the server is reachable, whether it has turned on the editor surface, and which models it offers.
 - Shows the connection in the status bar and keeps a log of **codes, durations and counts only**.
 
 ## The three agents
 
-| Agent | What it does with the server's model                                                                                                | What it needs                                                                                                          |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Ask   | Answers questions about your code. VS Code still offers it some read-only tools, so tool calling is required here too.              | A model that reports tool calling.                                                                                     |
-| Agent | Works on your files: reads, searches, edits, runs commands and tests, asking for your approval as VS Code does.                     | Tool calling, and a window of 32768 tokens or more. Quality depends on the model: small models do not do well at this. |
-| Plan  | Starts with `/plan` or from the agents menu, researches and writes a plan, then offers to hand it to Agent (**Proceed from Plan**). | The same as Agent.                                                                                                     |
+| Agent | What it does with the server's model                                                                                                                                   | What it needs                                                                                                                                    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ask   | Answers questions about your code. VS Code still offers it some read-only tools, so tool calling is required here too.                                                 | A model that reports tool calling.                                                                                                               |
+| Agent | Works on your files: reads, searches, edits, runs commands and tests, asking for your approval as VS Code does.                                                        | Tool calling, and a window of 32768 tokens or more (more on VS Code 1.147.0). Quality depends on the model: small models do not do well at this. |
+| Plan  | Starts with `/plan` or from the agents menu, researches and writes a plan, then offers to hand it to Agent (**Proceed from Plan**; VS Code 1.147.0 shows no such row). | The same as Agent.                                                                                                                               |
 
 Images: paste or attach a picture only with a model that reports **vision**; the extension refuses it before sending otherwise. Text files, selections and PDFs reach the model as the editor's own text; the content of a PDF is not sent (a later release adds a tool for documents).
 
@@ -81,13 +81,17 @@ All settings are **machine-scoped**: a repository's `.vscode/settings.json` cann
 ## Known limits
 
 - **No inline completion** (the grey suggestions while you type), and **no semantic search**: VS Code needs a Copilot plan for both.
-- **Tool calling is required.** A model that does not report it is not offered in the chat, in any mode. Test Connection tells you which models are affected.
+- **Tool calling is required.** Every mode sends tools. VS Code 1.143.1 does not offer a model without tool calling; 1.147.0 lists it. Test Connection tells you which models are affected.
 - **The quality of Agent and Plan depends on the model**, and on a window of 32768 tokens or more. A small model may loop, call tools badly or lose the thread.
+- **Agent mode does not start with a 32768-token model on VS Code 1.147.0.** The editor stops at once with "static system messages and tool definitions exceed this model's context budget": the extension gives it an input budget of the window minus the output ceiling (16384 tokens for such a model), and the Agent instructions and tool definitions of this VS Code version do not fit. Ask works. A later release looks at this.
+- **The stop button does not cancel the request on VS Code 1.147.0.** The answer stops on screen, but the editor does not tell the extension, so the server keeps producing the whole answer; on a shared server this keeps the model busy.
+- **No picture can be attached on VS Code 1.147.0** without a GitHub sign-in: the chat pastes the file's name, and the **+** button says it could not attach it.
+- **Some messages are the editor's own on VS Code 1.147.0.** A dropped answer shows "Response interrupted: the model stopped before finishing"; after a wrong key the server's models leave the picker and the editor offers its own sign-in. The status bar and **Test Connection** say what is wrong.
 - **`tool_choice` is not enforced.** VS Code can ask a model to call a tool; the server accepts the request and ignores it, because the model engine cannot force a call.
 - **Images are replayed in every request.** The editor sends the whole history each time, pictures included, and the server limits the number and size of images per request (default 8 images, 8 MiB each). When it refuses, the message says the request is too large: start a new chat.
 - **Remote windows are untested.** The extension runs on the machine where VS Code's window is (`extensionKind` is `ui`), so the key and the local network stay there. SSH and WSL windows have not been tried.
-- **macOS is untested** until a Mac is available. Discovery uses the folder the server's macOS layout names; on Linux there is no discovery, set `assistantCabinetCoder.serverUrl`.
-- The extension is built and tested with VS Code 1.143.1; the declared minimum is 1.140.0.
+- **macOS: one run so far** (VS Code 1.147.0, 19 November 2026): discovery, the chat, a key, HTTPS and the turned-off surface work; pictures, cancellation and an Agent turn with a real model are untested on macOS. Discovery uses the folder the server's macOS layout names; on Linux there is no discovery, set `assistantCabinetCoder.serverUrl`.
+- The extension is built and tested with VS Code 1.143.1 and has been run on 1.147.0; the declared minimum is 1.140.0.
 - For Copilot Business or Enterprise accounts, the GitHub administrator can disable models brought by extensions.
 
 ## Development
