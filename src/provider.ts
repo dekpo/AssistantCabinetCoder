@@ -75,6 +75,12 @@ export interface ChatCall {
 export function toModelEntry(model: ModelInfo): ModelEntry {
   const window = model.contextWindow ?? FALLBACK_WINDOW;
   const output = model.maxOutputTokens ?? FALLBACK_OUTPUT;
+  // The input budget keeps an eighth of the window for the answer (at least 2048 tokens, never more
+  // than the output ceiling), decision D-023. VS Code 1.147.0 refuses Agent mode when the input
+  // budget is below its static prompt (measured: 24576 refused, 28672 accepted), and the old rule,
+  // window minus ceiling, gave 16384 for a 32768-token model. Windows of 131072 and the fallback
+  // keep the old value, because there the eighth reaches the ceiling or the minimum.
+  const reserve = Math.min(output, Math.max(Math.floor(window / 8), 2048));
   return {
     id: model.id,
     name: model.id,
@@ -82,7 +88,7 @@ export function toModelEntry(model: ModelInfo): ModelEntry {
     version: "1",
     detail: UI.providerDetail,
     tooltip: describeModelTooltip(model, { window: FALLBACK_WINDOW, output: FALLBACK_OUTPUT }),
-    maxInputTokens: Math.max(1, window - output),
+    maxInputTokens: Math.max(1, window - reserve),
     maxOutputTokens: output,
     capabilities: { toolCalling: model.tools, imageInput: model.vision },
   };

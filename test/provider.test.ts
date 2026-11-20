@@ -83,7 +83,7 @@ describe("the list of models", () => {
       assert.equal(chat.version, "1");
       assert.equal(chat.detail, "Assistant Cabinet Coder");
       assert.equal(chat.maxOutputTokens, 8192);
-      assert.equal(chat.maxInputTokens, 32768 - 8192);
+      assert.equal(chat.maxInputTokens, 32768 - 4096);
       assert.deepEqual(chat.capabilities, { toolCalling: true, imageInput: false });
       assert.match(chat.tooltip, /Context window: 32768 tokens\./);
       assert.match(chat.tooltip, /Output ceiling: 8192 tokens\./);

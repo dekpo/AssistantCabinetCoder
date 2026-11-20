@@ -20,11 +20,15 @@
  * text characters of the request divided by four, so a client can calibrate its own estimate.
  * An image sent to a model whose `capabilities.vision` is false is refused with
  * `provider_capability_unsupported` 400, like the server does.
+ * Mode `small-model` answers like `ok` and lists one more model, `cabinet-small` (window 32768,
+ * ceiling 16384, tools, no vision: the shape of the 32768-token code models of a real server), so
+ * the input budget of Agent mode can be tried without the shared server.
  */
 import * as http from "node:http";
 import * as https from "node:https";
 
-export type StubMode = "ok" | "version-mismatch" | "off" | "key-needed" | "oversize" | "redirect";
+export type StubMode =
+  "ok" | "version-mismatch" | "off" | "key-needed" | "oversize" | "redirect" | "small-model";
 
 export const STUB_MODES: readonly StubMode[] = [
   "ok",
@@ -33,6 +37,7 @@ export const STUB_MODES: readonly StubMode[] = [
   "key-needed",
   "oversize",
   "redirect",
+  "small-model",
 ];
 
 export type Scenario =
@@ -108,6 +113,17 @@ export const STUB_MODELS = [
     capabilities: { tools: false, vision: false },
   },
 ];
+
+/** Listed only in mode `small-model`. */
+export const STUB_SMALL_MODEL = {
+  id: "cabinet-small",
+  object: "model",
+  created: 1761500000,
+  owned_by: "assistant-cabinet",
+  context_window: 32768,
+  max_output_tokens: 16384,
+  capabilities: { tools: true, vision: false },
+};
 
 function envelope(code: string, data: Record<string, unknown> = {}): string {
   return JSON.stringify({ error: { code, message: "stub secret message", data } });
@@ -420,6 +436,10 @@ async function chat(
   options: StubOptions,
 ): Promise<void> {
   const request = parseChatRequest(await readBody(req));
+  if (request.hasImage && request.model === STUB_SMALL_MODEL.id) {
+    sendJson(res, 400, envelope("provider_capability_unsupported", { capability: "vision" }));
+    return;
+  }
   if (request.hasImage && modelLacksVision(request.model)) {
     sendJson(res, 400, envelope("provider_capability_unsupported", { capability: "vision" }));
     return;
@@ -521,7 +541,7 @@ function modelsBody(mode: StubMode): string {
     object: "list",
     ide_api: mode === "version-mismatch" ? 2 : 1,
     features: { agents: false, document_analysis: false, image_description: false },
-    data: STUB_MODELS,
+    data: mode === "small-model" ? [...STUB_MODELS, STUB_SMALL_MODEL] : STUB_MODELS,
   });
 }
 

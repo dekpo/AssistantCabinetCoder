@@ -97,3 +97,21 @@ One numbered entry per mistake already made, written the moment it is found: wha
 19 November 2026, Part 6 of `docs/human-tests/X1b-chat.md`, VS Code 1.147.0 on macOS. The script expected the test profile's extensions folder to hold no copy after **Uninstall** and Cmd+Q. The folder was still there: VS Code had emptied `extensions.json` and named the folder in `.obsolete`, and deletes it only at its next start, which never comes for a throw-away profile. The Dock also kept a VS Code icon after the test instance quit, although no process of it was left.
 
 **Rule:** an uninstall is checked in `extensions.json` and `.obsolete`, not by the folder being gone; that the test instance has quit is checked by its processes, not by the Dock.
+
+## 17. The lot's options assumed the editor used the extension's token estimate
+
+19 November 2026, Part A of Lot X1d, VS Code 1.147.0. The lot file proposed a smaller output reserve (a quarter of the window) and a higher starting ratio for the estimate, both written before any measurement. A count-only local build showed that the editor never calls `provideTokenCount` in Agent or Plan (its agent harness counts the prompt itself), and probe models on the stub showed that a quarter of the window (24576 input tokens) was still refused while 28672 started. Without the measurement the lot would have shipped one change with no effect and one too small.
+
+**Rule:** before changing how the extension answers the editor, measure what the editor really calls and the value it really needs, on the version in use: a count-only build that is never committed, and stub models that bracket the threshold. Options are written after the numbers, never before.
+
+## 18. Document text inside a shell command ran words as commands
+
+19 November 2026, Part B of Lot X1d. The agent appended decisions to `docs/DECISIONS.md` with a `node -e '...'` script whose text held an apostrophe ("the stub's") and back-quoted names. The apostrophe closed the shell quote, so zsh ran the rest of the text: globs failed, plain words were "command not found", and each back-quoted name was run as a command substitution, among them `cabinet models context`, the server's administrator command. Nothing was written and nothing changed: that command needs an alias, a value and administrator rights, so it stopped on its missing arguments. But a shell must never be given prose that can name a real command.
+
+**Rule:** documents and any text with quotes or back quotes are written with the file-writing and editing tools only, never inside a shell command (no `node -e`, no heredoc, no `echo`); lesson 8 already banned heredocs for this. A shell script that edits a source file carries code only, and is read once for stray quotes before it is run.
+
+## 19. The editor retried a refusal five times and called it 502
+
+20 November 2026, Part 2 of `docs/human-tests/X1d-agent-budget.md`, VS Code 1.147.0. The script expected the server's `context_too_large` refusal to show as the extension's sentence. It did, but inside the editor's own frame: "Failed to get response from the AI model; retried 5 times (total retry wait time: 15.05 seconds) Last error: 502 The conversation is too long for this model...". The log held six identical `status=413 code=context_too_large` lines for one prompt. The extension throws a plain `Error` for every refusal, and the new agent harness treats a plain error as a passing failure worth retrying. Here it cost nothing (each refusal took under 10 ms and loaded no model), but a failure that is slow, such as a timeout on a large model, would be resent five times.
+
+**Rule:** a human-test expectation for an error describes what the editor adds around the extension's sentence, as seen on the version in use. Whether a refusal that cannot succeed by retrying (a window overflow, a wrong key, a missing model) should reach the editor as another error type is measured first (lesson 17), in a later lot chosen by the owner.
