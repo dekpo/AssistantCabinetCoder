@@ -269,3 +269,14 @@ Also decided that day: the vendored `docs/IDE-CONTRACT.md` was copied again from
 
 - The vendored `docs/IDE-CONTRACT.md` was copied from the server's `develop` (checked identical with `cmp`; the contract guard passes, 474 tests), in a commit of its own (lesson 7).
 - **Coordination (the owner's wish: few server packages, each with as much as possible, and the owner kept informed):** each project writes what the other needs in a tracked handoff file of its own and reads the other's read-only: the server in its `docs/handoffs/CODER-EXTENSION.md`, the extension in `docs/handoffs/SERVER.md` (new). Every extension lot that needs something from the server says so there before the server plans its next package, so that one package per platform carries everything; the owner carries a one-line message between the two chats.
+
+## D-033 Branches: `main` for validated releases, `develop` for validated lots
+
+23 November 2026, decided by the owner after pushing Lot P0b. It replaces the rule of 25 October 2026 ("one branch per lot from the previous lot's branch, nothing for `main`").
+
+- `main` holds what is tested and validated as a version. It is created from `docs/setup` and receives Lot P0b, the first validated version of the panel with its agent (0.4.0), by `git merge --no-ff feat/p0b-panel-agent`. It becomes the repository's default branch on GitHub.
+- `develop` is created from `main` and gathers the validated lots between two versions.
+- Each lot has its own branch `feat/<lot>`, created from `develop`. Once its human test passed and the owner validated it, it is merged into `develop` with `--no-ff`.
+- When the owner judges a version good enough, `develop` is merged into `main`.
+- Git stays owner-only: the agent gives every command, including the merges, and the owner runs them. No AI attribution anywhere, merge messages included. No pull request.
+- The old branches stay on the remote as records. `docs/setup` stays as it is.

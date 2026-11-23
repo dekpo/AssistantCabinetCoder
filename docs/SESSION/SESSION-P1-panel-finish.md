@@ -12,11 +12,11 @@
 > - `docs/IDE-CONTRACT.md` sections 2, 3 and 7 (copied from the server's `develop` at `969d047`: `features.stop_at_every_stage`, `data[].max_context_window`, the guard's ratio);
 > - read-only, `git -C ../AssistantCabinetServer show develop:docs/handoffs/CODER-EXTENSION.md` sections 6 and later (the server may have answered there; no fetch, no checkout).
 
-Branch: `feat/p1-panel-finish`, from `feat/p0b-panel-agent` (its last commit is the owner's commit of P0b). The base of every `git diff --stat` is `feat/p0b-panel-agent`. Estimate: 6 hours of agent work, then the owner's test (about 25 minutes). Version **0.5.0** (from 0.4.0). Needs nothing new from the server. The server's packages Mac 0.1.14 and MSI 0.1.36 (server Lot 46) may or may not be installed when the test runs: read `/health` and `GET /ide/v1/models` first.
+Branch: `feat/p1-panel-finish`, from `develop` (decision D-033: `main` holds the validated versions, `develop` the validated lots; `develop` was created from `main` right after Lot P0b was merged into `main`). The base of every `git diff --stat` is `develop`. At the end, after the owner's validation, give the commands that merge `feat/p1-panel-finish` into `develop` (`git merge --no-ff`, no attribution); `main` is touched only when the owner says a version is good enough. Estimate: 6 hours of agent work, then the owner's test (about 25 minutes). Version **0.5.0** (from 0.4.0). Needs nothing new from the server. The server's packages Mac 0.1.14 and MSI 0.1.36 (server Lot 46) may or may not be installed when the test runs: read `/health` and `GET /ide/v1/models` first.
 
 ## What P0b left (facts)
 
-- **Baseline:** `npm test` gives **474 tests, 474 passing** on `feat/p0b-panel-agent`; `npm run lint` and `npx prettier --check .` are clean. Run them first, and report a red baseline to the owner before building anything. A red contract guard means the server changed its contract again (lesson 7).
+- **Baseline:** `npm test` gives **474 tests, 474 passing** on `develop`; `npm run lint` and `npx prettier --check .` are clean. Run them first, and report a red baseline to the owner before building anything. A red contract guard means the server changed its contract again (lesson 7).
 - **The panel's agent.**
   - The loop (`agent`, at most 12 steps), four tools (`tools`, `workspace`), and edits applied only after **Accept** through `WorkspaceEdit` in `extension.ts` (`editorWorkspace`).
   - Saved format 2.
@@ -58,7 +58,7 @@ The owner's verdict D-031: the panel **Go with changes**; the provider in the ed
    - read `features.stop_at_every_stage` and `max_context_window` in `client.parseModels`; a missing flag is "not known" and a missing field is `null`;
    - with the flag `true`, the note after a stop before the first word is the plain **Stopped.**, because the older-server sentence is wrong there;
    - when a `context_too_large` refusal comes from a model whose `max_context_window` is larger than its `context_window`, the overflow sentence says the window can be raised, up to that maximum. It already names the command.
-7. **Version 0.5.0**, README, `docs/ARCHITECTURE.md`, decisions (next free number D-033), lessons, `docs/human-tests/P1-panel-finish.md`, and `docs/handoffs/SERVER.md` if anything changes for the server.
+7. **Version 0.5.0**, README, `docs/ARCHITECTURE.md`, decisions (next free number D-034), lessons, `docs/human-tests/P1-panel-finish.md`, and `docs/handoffs/SERVER.md` if anything changes for the server.
 
 ## Files this lot may change or create
 
@@ -66,7 +66,7 @@ The owner's verdict D-031: the panel **Go with changes**; the provider in the ed
 - Create: new tests, `docs/human-tests/P1-panel-finish.md`.
 - Delete: the provider's files listed in task 1, with their tests.
 - Existing tests: only by addition, apart from the named exceptions of tasks 1 and 5.
-- **Untouchable** (an empty `git diff --stat feat/p0b-panel-agent -- <paths>` in the report): `src/transport.ts`, `src/sse.ts`, `src/discovery.ts`, `src/platform.ts`, `src/keys.ts`, `src/codes.ts`, `src/store.ts`, `src/workspace.ts`, `src/agent.ts`, `docs/IDE-CONTRACT.md`, `docs/VIBE-CODING-PRACTICES.md`, `docs/SPIKE-FINDINGS.md`, the run records of the earlier human tests, `test/guards.test.ts`, `test/workspace.test.ts`, `test/agent.test.ts`, `test/support/pki.ts`.
+- **Untouchable** (an empty `git diff --stat develop -- <paths>` in the report): `src/transport.ts`, `src/sse.ts`, `src/discovery.ts`, `src/platform.ts`, `src/keys.ts`, `src/codes.ts`, `src/store.ts`, `src/workspace.ts`, `src/agent.ts`, `docs/IDE-CONTRACT.md`, `docs/VIBE-CODING-PRACTICES.md`, `docs/SPIKE-FINDINGS.md`, the run records of the earlier human tests, `test/guards.test.ts`, `test/workspace.test.ts`, `test/agent.test.ts`, `test/support/pki.ts`.
 
 ## Human test (about 25 minutes, the Mac, a throw-away profile `p1-vscode-*`)
 
