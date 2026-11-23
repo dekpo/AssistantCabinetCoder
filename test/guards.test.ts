@@ -107,9 +107,16 @@ describe("no-network and no-risk guard", () => {
         /\b(writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|mkdir|mkdirSync|copyFile|rename|unlink|rmSync|rmdir)\s*\(/,
       ],
     ];
+    // Decision D-027 (owner, 23 November 2026): the saved conversations of the chat panel are the
+    // one exception to file writing, in one named module; test/store.test.ts proves that it writes
+    // only inside the folder it is given.
+    const WRITER = "src/store.ts";
     for (const file of SOURCES) {
       const text = readText(file);
       for (const [label, pattern] of forbidden) {
+        if (file === WRITER && label === "file or folder writing") {
+          continue;
+        }
         assert.equal(pattern.test(text), false, `${file}: ${label}`);
       }
     }

@@ -133,3 +133,21 @@ One numbered entry per mistake already made, written the moment it is found: wha
 21 November 2026, Part 2 of the measures of Lot X1e. Step 4 (a new chat, a Plan send, a stop, a second send, a second stop) came after three steps of the same shape; the owner answered after step 3, and the stub's console showed that step 4 had never been played. It was given again as a part of its own and played at once.
 
 **Rule:** a measuring part that the agent checks in a console lists, at its end, what the console must show (for example "four answers of the scenario `long`"), and the agent reads the console before calling the part done; a step with several sends is split into one numbered step per send.
+
+## 23. A lot file carried the desktop application's privacy default into the coding extension
+
+23 November 2026, start of Lot P0a. The lot file recommended keeping the panel's conversations in memory only, "lost when the window reloads", citing the programme's privacy rules, which were copied from the server and the desktop application. The owner refused: the extension is a professional coding tool, its users expect their conversations to survive a reload like in any serious coding assistant, and the desktop application (office documents) is a different product with a different approach. A recommendation that throws away the user's work had been written as the safe default without asking what the users of this product expect.
+
+**Rule:** before recommending that the extension throw away or not keep the user's work (conversations, drafts, settings) "for privacy", check whether the rule comes from the desktop application's context, and ask the owner with the cost to the user stated. Strict privacy here means no telemetry, no other host and no content in logs or error messages; it does not mean losing the user's own data on their own machine (decision D-027).
+
+## 24. Saves in the background raced with opening, deleting and the first read of the index
+
+23 November 2026, Lot P0a, found by the new tests before anything was installed. Three races: (1) twenty saves of one conversation, sent before the store had read its index, were written in the order the index reads finished, so an older version could win; (2) the index rebuilt during that first read waited for a write queued behind the save that was waiting for the read: a deadlock; (3) the session opened or deleted a conversation while its save was still queued, so a fresh conversation looked missing, and a deletion could be undone by the late save writing the file again.
+
+**Rule:** an operation on stored data fixes its order when it is asked for, not after an `await`; nothing that a queued task waits for may itself wait behind that queue; and an operation that reads or removes what a background save is writing waits for the saves already on their way. Each such case gets a test that runs many operations at once.
+
+## 25. Lessons 3 and 18 happened again in Lot P0a
+
+23 November 2026. (1) The writing tool turned the escape sequence of an accented letter into the letter itself in `test/chat.test.ts`; the language guard caught it at the first full run, because the check of lesson 3 had been run on `src` only, not on `test`. (2) To fix two patterns of the human-test file, the agent put document text holding quotes into a `node -e '...'` command; zsh stopped on a glob before running anything, so nothing was written and no command ran, but lesson 18 forbids exactly that.
+
+**Rule:** the check of lesson 3 runs on `src`, `test` and `media` after every written file that may hold a non-ASCII character; any change to a document, even a few characters, is made with the editing tool, never inside a shell command.

@@ -1,8 +1,8 @@
 {
   "name": "assistant-cabinet-coder",
   "displayName": "Assistant Cabinet Coder",
-  "description": "Gives the VS Code chat the models of an Assistant Cabinet server.",
-  "version": "0.2.3",
+  "description": "A chat panel and the VS Code chat models of an Assistant Cabinet server.",
+  "version": "0.3.0",
   "publisher": "assistantcabinet",
   "icon": "images/icon.png",
   "license": "MIT",
@@ -58,6 +58,24 @@
         "managementCommand": "assistantCabinetCoder.manage"
       }
     ],
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "assistantCabinetCoder",
+          "title": "Assistant Cabinet Coder",
+          "icon": "images/panel.svg"
+        }
+      ]
+    },
+    "views": {
+      "assistantCabinetCoder": [
+        {
+          "type": "webview",
+          "id": "assistantCabinetCoder.chat",
+          "name": "Chat"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "assistantCabinetCoder.manage",
@@ -124,7 +142,9 @@
   },
   "files": [
     "out/src/**/*.js",
+    "media/**",
     "images/icon.png",
+    "images/panel.svg",
     "LICENSE",
     "README.md"
   ]

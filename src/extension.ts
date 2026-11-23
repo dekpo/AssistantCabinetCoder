@@ -23,6 +23,7 @@ import {
   STATUS_TOOLTIP,
   UI,
 } from "./messages";
+import { registerChatView } from "./panel";
 import { ChatProvider, type Host, type Resolution } from "./provider";
 import { closeAgents, loadCaFile } from "./transport";
 
@@ -108,6 +109,10 @@ export function activate(context: vscode.ExtensionContext): void {
     fireChange: () => modelChanges.fire(),
   };
   const provider = new ChatProvider(host);
+  const chatView = registerChatView(context, {
+    resolve: () => host.resolve(),
+    log: (record) => log.record(record),
+  });
 
   function showState(state: ConnectionState): void {
     status.text = STATUS_LABELS[state];
@@ -116,6 +121,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   async function refreshStatus(): Promise<void> {
     provider.invalidate();
+    void chatView.session.refreshModels();
     const ticket = ++refreshCounter;
     const resolved = await resolve();
     if (ticket !== refreshCounter) {
@@ -286,6 +292,7 @@ export function activate(context: vscode.ExtensionContext): void {
     status,
     modelChanges,
     vscode.lm.registerLanguageModelChatProvider(VENDOR, languageModels),
+    chatView.registration,
     vscode.commands.registerCommand(COMMANDS.manage, manage),
     vscode.commands.registerCommand(COMMANDS.setKey, setKey),
     vscode.commands.registerCommand(COMMANDS.clearKey, clearKey),

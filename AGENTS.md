@@ -19,7 +19,7 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 ## Privacy
 
 - No telemetry. No network call to any host other than the configured server.
-- No code, message, file content, image, file name, tool argument or tool result is written anywhere (file, output channel, error message). Logs carry codes, durations and counts only.
+- The chat panel's conversations are saved on the user's machine, in the extension's private storage for the workspace, by `src/store.ts` alone (decision D-027: this is a professional coding tool and conversations must survive a reload; the desktop application's privacy defaults do not apply here). Nothing else of them is written: no code, message, file content, image, file name, tool argument or tool result reaches the output channel, a log line or an error message. Logs carry codes, durations and counts only.
 - The API key lives only in VS Code's secret storage and is never printed or logged.
 - The extension never changes a setting that is not its own and never disables another extension. Privacy rules are tests, not intentions.
 
@@ -57,3 +57,7 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 | Package file               | `assistant-cabinet-coder-<version>.vsix`                                                                                                                                                 |
 | Sources                    | `src/`, tests in `test/`, stub gateway in `test/stub-gateway/`                                                                                                                           |
 | Source modules             | `codes`, `platform`, `discovery`, `transport`, `sse`, `client`, `keys`, `convert`, `tokens`, `provider`, `tools`, `agents`, `log`, `messages`, plus the thin VS Code adapter `extension` |
+| Chat panel modules         | `protocol`, `render`, `conversation`, `history`, `store` (the only writer), `chat`, `session`, `page`, plus the thin VS Code adapter `panel`                                             |
+| Chat panel                 | view container `assistantCabinetCoder` (title `Assistant Cabinet Coder`, in `secondarySidebar`, icon `images/panel.svg`), webview view `assistantCabinetCoder.chat` (name `Chat`)        |
+| Webview files              | `media/panel.js`, `media/panel.css` (no framework, no build step)                                                                                                                        |
+| Saved conversations        | `<storageUri>/conversations/<id>.json` and `index.json` (no folder open: `<globalStorageUri>/no-folder/conversations/`); workspace state key `assistantCabinetCoder.panelModel`          |

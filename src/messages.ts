@@ -263,3 +263,53 @@ export function describeOverflow(numbers: OverflowNumbers): string {
   }
   return `The conversation is too long for this server: ${numbers.chars} characters for a limit of ${numbers.limit}. Start a new chat or attach less. An administrator can raise the limit with: cabinet config set IDE_MAX_CONTEXT_CHARS=<characters>, then cabinet restart (with sudo on macOS).`;
 }
+
+/**
+ * Every text of the extension's chat panel. The webview holds no sentence of its own: it receives
+ * these labels from the extension and shows them with `textContent`.
+ */
+export const PANEL = {
+  viewTitle: "Chat",
+  send: "Send",
+  stop: "Stop",
+  newConversation: "New",
+  newConversationTitle: "Start a new conversation",
+  history: "History",
+  historyTitle: "Show the saved conversations of this workspace",
+  back: "Back",
+  open: "Open",
+  delete: "Delete",
+  model: "Model",
+  noModel: "No model",
+  placeholder: "Ask the model. Enter sends, Shift+Enter starts a new line.",
+  you: "You",
+  reading: "Reading the request",
+  answering: "Answering",
+  seconds: "s",
+  emptyConversation:
+    "A plain chat with a model of your Assistant Cabinet server. No file of the workspace is read or changed.",
+  historyEmpty: "No saved conversation in this workspace yet.",
+  historyHint:
+    "Conversations are saved on this computer, in the private storage of VS Code for this workspace.",
+  stoppedAnswering: "Stopped.",
+  stoppedReading:
+    "Stopped before the first word arrived. An older server finishes reading the request before it takes the next one, so your next message may wait a moment.",
+  interrupted: "This answer was interrupted: VS Code closed or reloaded the window while it came.",
+  lengthReached: "The answer stopped at the model's output ceiling.",
+  untitled: "New conversation",
+  tooLong: (limit: number): string =>
+    `The message is longer than the panel accepts (${limit} characters). Send a shorter message.`,
+  deleteConfirm: (title: string): string =>
+    `Delete the conversation "${title}"? It is removed from this computer and cannot be restored.`,
+  saveFailed:
+    "The conversation could not be saved on this computer. It stays open in the panel; check the free disk space.",
+  loadFailed: "The saved conversations could not be read.",
+  unreadableConversation:
+    "This saved conversation cannot be read: its file is damaged or was written by a newer version. It was left on disk unchanged.",
+  deleteFailed: "The conversation could not be deleted.",
+  modelGone:
+    "The model of this conversation is no longer offered by the server. Choose another one.",
+  noModels: "The server offers no model. Ask the administrator to add one.",
+} as const;
+
+export type PanelLabels = Omit<typeof PANEL, "tooLong" | "deleteConfirm">;

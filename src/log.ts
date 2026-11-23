@@ -4,7 +4,7 @@
  */
 import { isMachineCode, type MachineCode } from "./codes";
 
-export const CALL_NAMES = ["health", "models", "chat", "files"] as const;
+export const CALL_NAMES = ["health", "models", "chat", "files", "webview", "store"] as const;
 export type CallName = (typeof CALL_NAMES)[number];
 
 export interface CallRecord {
@@ -17,9 +17,16 @@ export interface CallRecord {
   completionTokens?: number | undefined;
   toolCalls?: number | undefined;
   code?: MachineCode | undefined;
+  /** Milliseconds from the start of a chat call to its first event of the answer (the panel). */
+  firstMs?: number | undefined;
+  /** Messages from the webview dropped because they did not have the expected shape. */
+  dropped?: number | undefined;
+  /** A Node error code of a failed disk operation of the conversation store, such as `ENOSPC`. */
+  detail?: string | undefined;
 }
 
 const ALIAS_PATTERN = /^[A-Za-z0-9_.:/-]{1,128}$/;
+const DETAIL_PATTERN = /^[A-Z0-9_]{1,32}$/;
 
 function count(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
@@ -47,6 +54,8 @@ export function formatCallLine(record: CallRecord, now: Date): string {
     ["prompt_tokens", count(record.promptTokens)],
     ["completion_tokens", count(record.completionTokens)],
     ["tool_calls", count(record.toolCalls)],
+    ["first_ms", count(record.firstMs)],
+    ["dropped", count(record.dropped)],
   ];
   for (const [name, value] of tokens) {
     if (value !== undefined) {
@@ -55,6 +64,9 @@ export function formatCallLine(record: CallRecord, now: Date): string {
   }
   if (isMachineCode(record.code)) {
     parts.push(`code=${record.code}`);
+  }
+  if (typeof record.detail === "string" && DETAIL_PATTERN.test(record.detail)) {
+    parts.push(`detail=${record.detail}`);
   }
   return parts.join(" ");
 }

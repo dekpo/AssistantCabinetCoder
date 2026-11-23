@@ -20,6 +20,9 @@
  * (`[stub:refuse:server_busy]`; `context_too_large` when none) with its status, and a
  * `context_too_large` carries the guard's numbers, so an editor's retries of a refusal can be
  * counted.
+ * `markup` streams an answer with headings, lists, inline code, bold, italic, two fenced code
+ * blocks and hostile markup (a script tag, an image with an error handler, a script link), so the
+ * chat panel can show that every piece of it stays text.
  * With `stream_options.include_usage` the stream ends with a usage chunk whose prompt tokens are the
  * text characters of the request divided by four, so a client can calibrate its own estimate.
  * An image sent to a model whose `capabilities.vision` is false is refused with
@@ -54,7 +57,8 @@ export type Scenario =
   | "empty"
   | "long"
   | "cut"
-  | "refuse";
+  | "refuse"
+  | "markup";
 
 export const SCENARIOS: readonly Scenario[] = [
   "text",
@@ -67,6 +71,7 @@ export const SCENARIOS: readonly Scenario[] = [
   "long",
   "cut",
   "refuse",
+  "markup",
 ];
 
 /**
@@ -208,6 +213,47 @@ const TEXT_STREAM = [
 
 const TEXT_COMPLETION_CHARS = 26;
 const CLOSING_TEXT = "Closing answer from the stub.";
+
+/** The answer of the scenario `markup`, sent in pieces that cut through its markers. */
+export const MARKUP_TEXT = [
+  "# Stub heading",
+  "",
+  "Some **bold**, some *italic* and `inline code`.",
+  "",
+  "- first item",
+  "- second item",
+  "  - nested item",
+  "",
+  "1. one",
+  "2. two",
+  "",
+  "```ts",
+  "const answer: number = 42;",
+  "```",
+  "",
+  '<script>document.title = "stub-markup"</script>',
+  "",
+  '<img src="x" onerror="document.title = 1">',
+  "",
+  "[a link](javascript:void(0))",
+  "",
+  "```html",
+  "<b>not bold</b>",
+  "```",
+].join("\n");
+
+function markupStream(): string[] {
+  const pieces: string[] = [];
+  for (let at = 0; at < MARKUP_TEXT.length; at += 7) {
+    pieces.push(chunk({ content: MARKUP_TEXT.slice(at, at + 7) }));
+  }
+  return [
+    chunk({ role: "assistant", content: "" }),
+    ...pieces,
+    chunk({}, "stop"),
+    "data: [DONE]\n\n",
+  ];
+}
 
 const ERROR_STREAM = [
   chunk({ role: "assistant", content: "" }),
@@ -560,6 +606,10 @@ async function chat(
     case "error":
       sse(res);
       res.end(ERROR_STREAM.join(""));
+      return;
+    case "markup":
+      sse(res);
+      res.end(withUsage(markupStream(), usage(MARKUP_TEXT.length)).join(""));
       return;
     case "long": {
       sse(res);
