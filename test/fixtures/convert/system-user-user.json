@@ -1,0 +1,39 @@
+{
+  "description": "A System message in several parts, and a user message in several parts, with no tools.",
+  "alias": "cabinet-chat",
+  "vision": false,
+  "toolMode": "auto",
+  "tools": [],
+  "messages": [
+    {
+      "role": "System",
+      "content": [
+        { "type": "text", "value": "First paragraph." },
+        { "type": "text", "value": "Second paragraph." }
+      ]
+    },
+    {
+      "role": "User",
+      "content": [
+        { "type": "text", "value": "<context>" },
+        { "type": "text", "value": "the question" }
+      ]
+    },
+    { "role": "User", "content": [] }
+  ],
+  "expected": {
+    "model": "cabinet-chat",
+    "stream": true,
+    "stream_options": { "include_usage": true },
+    "messages": [
+      { "role": "system", "content": "First paragraph.\nSecond paragraph." },
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "<context>" },
+          { "type": "text", "text": "the question" }
+        ]
+      }
+    ]
+  }
+}

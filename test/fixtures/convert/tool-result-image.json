@@ -1,0 +1,67 @@
+{
+  "description": "A tool result with an image and a text added by the editor: the text rides in the tool message, the image in a following user message naming the tool.",
+  "alias": "cabinet-code",
+  "vision": true,
+  "toolMode": "auto",
+  "tools": [{ "name": "view_image", "description": "View an image" }],
+  "messages": [
+    { "role": "System", "content": [{ "type": "text", "value": "System text." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Show me the picture." }] },
+    {
+      "role": "Assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "callId": "call_9",
+          "name": "view_image",
+          "input": { "filePath": "pic.png" }
+        }
+      ]
+    },
+    {
+      "role": "User",
+      "content": [
+        {
+          "type": "toolResult",
+          "callId": "call_9",
+          "content": [
+            { "type": "data", "mimeType": "image/png", "base64": "iVBORw==" },
+            { "type": "text", "value": "Image added by the editor." }
+          ]
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "model": "cabinet-code",
+    "stream": true,
+    "stream_options": { "include_usage": true },
+    "messages": [
+      { "role": "system", "content": "System text." },
+      { "role": "user", "content": "Show me the picture." },
+      {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_9",
+            "type": "function",
+            "function": { "name": "view_image", "arguments": "{\"filePath\":\"pic.png\"}" }
+          }
+        ]
+      },
+      { "role": "tool", "tool_call_id": "call_9", "content": "Image added by the editor." },
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "Image returned by the tool view_image." },
+          { "type": "image_url", "image_url": { "url": "data:image/png;base64,iVBORw==" } }
+        ]
+      }
+    ],
+    "tools": [
+      { "type": "function", "function": { "name": "view_image", "description": "View an image" } }
+    ],
+    "tool_choice": "auto"
+  }
+}

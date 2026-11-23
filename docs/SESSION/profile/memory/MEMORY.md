@@ -1,0 +1,1 @@
+- [Human tests: one part at a time, name the terminal](feedback-human-tests-one-part-and-terminal.md) — give a single part per message and state Git Bash or cmd explicitly

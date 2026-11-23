@@ -1,0 +1,102 @@
+# Implementation plan: the VS Code extension "Assistant Cabinet Coder" (revised 27 October 2026)
+
+> **Superseded in part (23 November 2026, decision D-026).** The extension is moving from the editor's chat to a chat panel of its own. The next lots are `SESSION-P0a-panel.md` and `SESSION-P0b-panel-agent.md`; Lots X2a, X2b, X3 and X4 below are paused and will be planned again on the panel after the owner's verdict on P0b. The rest of this plan is kept as the record of the first design.
+
+Project: **AssistantCabinetCoder** (folder `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder`, remote `https://github.com/dekpo/AssistantCabinetCoder.git`). It replaces the first plan, which called the project `AssistantCabinetVSCode`. The binding rules of every chat are in `COMMON-RULES.md`; the contract with the server is `docs/IDE-CONTRACT.md` (tracked); the lots are the `SESSION-X*.md` files, one per chat. This plan is a local session document (the folder is in `.gitignore`); anything of it that is committed is in English.
+
+## 1. What it is, and how it is installed
+
+An ordinary VS Code extension, delivered as **one `.vsix` file**: in VS Code, Extensions view, menu `...`, **Install from VSIX...** (or `code --install-extension file.vsix`). No marketplace, no account, no installer. The server's MSI does **not** deliver the file.
+
+## 2. What the extension brings to VS Code
+
+| In VS Code | What the extension does | Lot |
+| --- | --- | --- |
+| Connection | Finds the server (reads `server.env` on the server's own machine), HTTPS with the authority file, API key in VS Code's secret store, connection test, content-free log, status bar | X1a |
+| Chat model picker | Adds the server's models, with their window, tools and images | X1b |
+| **Ask**, **Agent**, **Plan** modes (Local session) | Translates VS Code <-> server faithfully: text, tool calls, tool results, pasted images | X1b |
+| Tool for images | `cabinet_view_image`: reads an image **on this machine** and shows it to a model that can see (or, with the server's vision alias, describes it) | X2a, X2b |
+| Tool for documents | `cabinet_read_document`: reads a PDF, Word, Excel, PowerPoint, CSV or scanned file **on this machine** and has the server turn it into text | X2b |
+| Agents list | 5 agents shipped in the `.vsix` (Implementer, Reviewer, Architect, Debugger, Test Writer) plus a command that copies the administrator's catalogue into `.github/agents/` after a preview | X3 |
+| Release | Robustness, security review, `.vsix`, final README, full human test | X4 |
+
+**Reading, creating and editing files, running the terminal or the tests: the VS Code Agent does it, on this machine, with the user's approvals.** The extension does not reimplement it; it gives the agent a good model and the two tools VS Code lacks (documents and images).
+
+## 3. What was verified in the VS Code documentation (dated 21 October 2026) and its code
+
+- An extension can provide models to the chat (`languageModelChatProviders`), with tools and images.
+- **Models brought by the user work without a GitHub sign-in and without a Copilot plan, even offline.** My biggest doubt, lifted by the documentation, **to be confirmed by the probe X0** on the owner's VS Code.
+- **Plan** exists in the Local session (`/plan`), with its model set by `chat.planAgent.defaultModel`.
+- Limits stated by VS Code: **inline suggestions** (ghost text) and **semantic search** need a Copilot plan, so they will not be available; for a Copilot Business/Enterprise account the GitHub administrator can disable the "bring your own model" policy.
+- A model without tool calling is not offered to the agents: the extension announces "tools" only if the server confirms it.
+- Custom agents are `.agent.md` files; **a `.vsix` installed by hand cannot register agents dynamically** (a "proposed" API), hence the sync command. The static `chatAgents` contribution for the shipped agents is to be confirmed by X0.
+
+## 4. The lots (one chat per lot; none above about six hours, per the practices)
+
+The first plan had four lots (X1 at 14 to 18 hours and X2 at 7 to 10 hours were too big). X1 is now X1a and X1b; X2 is X2a and X2b.
+
+| Lot | Branch (from the previous one) | Content | Estimate | Owner's test | Needs on the server side |
+| --- | --- | --- | --- | --- | --- |
+| *setup* | `docs/setup` | `.gitignore`, the practices, the contract (done by the planning chat; the owner commits it) | - | none | - |
+| **X0** | `feat/x0-spike` | **Probe**: repository set-up, a throw-away spike extension and a script for the owner (about 40 min); measures what VS Code really sends, sign-in-free use, images, attachments, shipped agents, tool names, `when` clauses. **Stops and waits for the owner's go.** | 2 h | about 40 min | none |
+| **X1a** | `feat/x1a-foundations` | **Foundations**: manifest and settings, server discovery, HTTPS transport with the authority file, SSE parser, typed client for `/health` and `/ide/v1/models`, key in the secret store, commands, status bar, content-free log, **stub gateway**, privacy and risk guard tests | 6 h | about 15 min | none (stub; `GET /health` of the tower works today) |
+| **X1b** | `feat/x1b-provider` | **Model provider**: models in the picker, full conversion in both directions, streaming, tool calls, images, calibrated token count, error messages, spike removed, README | 8 h | about 40 min | Lot 15b + `IDE_ENABLED=on` (or the stub) |
+| **X2a** | `feat/x2a-view-image` | **Image tool, `view` mode**, and the shared path-safety and size rules for both attachment tools | 4 h | about 15 min | none |
+| **X2b** | `feat/x2b-read-document` | **Document tool** and `describe` mode through `POST /ide/v1/files/analyze`, availability from `features` | 5 h | about 25 min | Lot 17b (and 17a) (or the stub) |
+| **X3** | `feat/x3-agents` | **Agents**: five shipped agents, sync of the server's catalogue (preview, marker, never a silent overwrite) | 5 to 7 h | about 25 min | Lot 16 (or the stub) |
+| **X4** | `feat/x4-release` | **Robustness, security, `.vsix` release**, final README, full human test | 5 to 7 h | about 60 min | all |
+
+### State and rolling plan (revised 23 November 2026, after the verdict of Lot P0b, D-031)
+
+The extension left the editor's chat for a panel of its own (D-026). Lots X2a, X2b, X3 and X4 below are replaced by the panel's lots:
+
+| Lot | Branch | Content | State | Server package needed |
+| --- | --- | --- | --- | --- |
+| P0a | `feat/p0a-panel` | The panel, a plain chat, a real stop, saved conversations (0.3.0) | done, tested | none |
+| P0b | `feat/p0b-panel-agent` | The agent loop, four workspace tools, edits after Accept (0.4.0) | done, tested; verdict D-031 | none |
+| **P1** | `feat/p1-panel-finish` | The editor-chat provider removed; tables, a copy icon on code blocks, the List target, the answer's language; the server's stop flag and model maximum (0.5.0). Prompt: `SESSION-P1-panel-finish.md` | next | none; tests the stop flag on 0.1.14 if installed |
+| P2 | `feat/p2-documents-images` | Images in a message (vision models) and documents through `POST /ide/v1/files/analyze`, with P0b's path rules (the goals of X2a and X2b, on the panel) | to plan at the end of P1 | none new (server Lot 17b, settings) |
+| P3 | `feat/p3-agents` | The server's agent catalogue (`GET /ide/v1/agents`) chosen in the panel (the goal of X3) | to plan | none new (server Lot 16, a catalogue file) |
+| P4 | `feat/p4-release` | Robustness, the tested range of code models (D-031 (5)), release, the full human test (the goal of X4) | to plan | Mac 0.1.14 and MSI 0.1.36 (server Lot 46) |
+
+The server's needs are written in `docs/handoffs/SERVER.md` before the server plans a package (D-032): one package per platform (server Lot 46) is meant to carry everything up to P4.
+
+### State and rolling plan (revised 19 November 2026)
+
+| Lot | Branch | State on 19 November 2026 |
+| --- | --- | --- |
+| setup, X0, X1a | `docs/setup`, `feat/x0-spike`, `feat/x1a-foundations` | done, accepted, pushed |
+| X1b | `feat/x1b-provider` | built (238 tests); its human test was played with X1c, see below |
+| Icon | `feat/logo-icon` (from X1b) | done, tested on the Mac on 6 November 2026, pushed (`9d1abfc`, 240 tests) |
+| X1c | `feat/x1c-server-catch-up` (from `feat/logo-icon`) | done (253 tests, version 0.2.1); the X1b human test was played on the Mac on 18 and 19 November 2026 (VS Code 1.147.0): discovery on `127.0.0.1:1975`, the chat, a key, HTTPS and the turned-off surface work; Agent mode did not start with the Mac's 32768-token models, no picture could be attached, the stop button does not cancel (run record of `docs/human-tests/X1b-chat.md`) |
+| **X1d** (new) | `feat/x1d-agent-budget` (from `feat/x1c-server-catch-up`) | to do (decision D-022): measure what Agent mode needs on 1.147.0, then adjust the input budget or the token estimate, version 0.2.2, a real Agent turn on the Mac's server. About 3 h + 20 min of test. Prompt: `SESSION-X1d-agent-budget.md` |
+| X2a, X2b, X3, X4 | as in the table below | planned; each prompt carries a status note and is **aligned at the end of the previous lot** (`COMMON-RULES.md` section 9). X2a holds an open question for the owner (the editor already has its own `view_image` tool) |
+
+The server side of `/ide/v1` is complete (server Lots 15a to 18, installed on the Mac as package 0.1.11 and on Windows as MSI 0.1.28 or newer); only the optional Lot 19 (editor-only keys) is not built. What remains on the server is **settings the owner turns on** (`IDE_ENABLED`, `IDE_DOCUMENT_ANALYSIS`, `IDE_VISION_ALIAS`) and **a catalogue file** (`ide-agents.json`), listed per lot in `COMMON-RULES.md` section 7, with the warnings about the desktop application that shares the server. The tower `http://192.168.1.83:8090` named below no longer exists.
+
+Every lot is tested first against the **stub gateway** shipped with the extension (`npm run stub`), so the extension and the server advance in parallel now that the contract is frozen. The server's lots are 15a (done), 15b, 16, 17a, 17b, 18 and 19; 18 (large machines) and 19 (optional keys limited to the editor) have no extension lot but X4's compatibility table mentions them.
+
+## 5. Safeguards
+
+- **Zero runtime dependency** (Node's built-in modules only), pinned dev dependencies, no install script, no telemetry, no network call outside the configured server (tests check it in the sources).
+- **Settings in `machine` scope**: a booby-trapped project folder cannot redirect the key to another server.
+- **The key** lives only in VS Code's secret store, never in a setting, a log or a message.
+- **The log** carries only codes, durations and token counts: never text, tool arguments, file names or keys.
+- **The two attachment tools cannot write anything** (a test forbids write functions in those modules) and refuse paths outside the workspace folder without explicit confirmation.
+- **Agent files**: the file name comes only from a validated identifier, written only under `.github/agents/`, marked "managed by Assistant Cabinet Coder", previewed before writing, never over a hand-made file.
+- **Made to be changed by an AI**: small single-purpose modules, pure functions, everything tested without VS Code, `docs/ARCHITECTURE.md` updated by every lot, decisions and lessons written down.
+- **Security notes for the README** (from the server project): the server runs plain HTTP and, on the tower, no authentication; once the editor surface is on, anyone who reaches the port can use it, and source code crosses the network in clear. The README tells administrators to use HTTPS (the authority file through `Select CA File`) and, when the server has keys, a key, on any shared network.
+
+## 6. What the owner provides
+
+- At the start of X0: the **publisher name** (default `assistantcabinet`) and the **licence** of the extension (the agent proposes MIT or Apache-2.0 and does not invent one), and the go-ahead for the list of dev dependencies.
+- Play the X0 probe (about 40 minutes) and say "go"; then one short human test at the end of each lot.
+- Run the git commands the agent gives (the agent never commits).
+
+## 7. Risks
+
+- **VS Code moves fast** (the AI APIs change every month): the probe X0 fixes the minimum version, and X4's compatibility table ties extension version, `ide_api` and server version together.
+- **Agent/Plan quality** is made by the model and its window (32 768 tokens or more); the extension cannot replace it. The small models on the tower will not do well at it.
+- **No ghost-text completion**: out of scope while VS Code requires a Copilot plan for it.
+- **macOS**: discovery has the macOS path but it is not claimed tested without a Mac (the owner expects one on 28 October 2026).
+- **Remote windows (WSL/SSH)**: discovery reads the machine the extension runs on; the probe (h) records where it runs.

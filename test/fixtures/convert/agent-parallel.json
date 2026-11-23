@@ -1,0 +1,87 @@
+{
+  "description": "An Agent turn after two parallel tool calls: multi-part results and a text added by the editor.",
+  "alias": "cabinet-chat",
+  "vision": false,
+  "toolMode": "auto",
+  "tools": [
+    { "name": "read_file", "description": "Read a file" },
+    { "name": "grep_search", "description": "Search text" }
+  ],
+  "messages": [
+    { "role": "System", "content": [{ "type": "text", "value": "System text." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Context." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Find the bug." }] },
+    {
+      "role": "Assistant",
+      "content": [
+        { "type": "text", "value": "Reading " },
+        { "type": "text", "value": "now." },
+        {
+          "type": "toolCall",
+          "callId": "call_1",
+          "name": "read_file",
+          "input": { "filePath": "a.ts" }
+        },
+        {
+          "type": "toolCall",
+          "callId": "call_2",
+          "name": "grep_search",
+          "input": { "query": "bug" }
+        }
+      ]
+    },
+    {
+      "role": "User",
+      "content": [
+        {
+          "type": "toolResult",
+          "callId": "call_1",
+          "content": [
+            { "type": "text", "value": "line one" },
+            { "type": "text", "value": "line two" }
+          ]
+        },
+        {
+          "type": "toolResult",
+          "callId": "call_2",
+          "content": [{ "type": "text", "value": "no match" }]
+        },
+        { "type": "text", "value": "Please continue." }
+      ]
+    }
+  ],
+  "expected": {
+    "model": "cabinet-chat",
+    "stream": true,
+    "stream_options": { "include_usage": true },
+    "messages": [
+      { "role": "system", "content": "System text." },
+      { "role": "user", "content": "Context." },
+      { "role": "user", "content": "Find the bug." },
+      {
+        "role": "assistant",
+        "content": "Reading now.",
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "type": "function",
+            "function": { "name": "read_file", "arguments": "{\"filePath\":\"a.ts\"}" }
+          },
+          {
+            "id": "call_2",
+            "type": "function",
+            "function": { "name": "grep_search", "arguments": "{\"query\":\"bug\"}" }
+          }
+        ]
+      },
+      { "role": "tool", "tool_call_id": "call_1", "content": "line one\nline two" },
+      { "role": "tool", "tool_call_id": "call_2", "content": "no match" },
+      { "role": "user", "content": "Please continue." }
+    ],
+    "tools": [
+      { "type": "function", "function": { "name": "read_file", "description": "Read a file" } },
+      { "type": "function", "function": { "name": "grep_search", "description": "Search text" } }
+    ],
+    "tool_choice": "auto"
+  }
+}

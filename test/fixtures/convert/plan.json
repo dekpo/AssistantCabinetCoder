@@ -1,0 +1,37 @@
+{
+  "description": "A Plan turn: the Ask tools plus a sub-agent tool, an earlier answer in the history, and the Required tool mode.",
+  "alias": "cabinet-code",
+  "vision": true,
+  "toolMode": "required",
+  "tools": [
+    { "name": "read_file", "description": "Read a file" },
+    { "name": "runSubagent", "description": "Run a sub-agent" }
+  ],
+  "messages": [
+    { "role": "System", "content": [{ "type": "text", "value": "Plan system." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Context." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Plan the change." }] },
+    { "role": "Assistant", "content": [{ "type": "text", "value": "Here is a first outline." }] },
+    { "role": "User", "content": [{ "type": "text", "value": "Make it shorter." }] }
+  ],
+  "expected": {
+    "model": "cabinet-code",
+    "stream": true,
+    "stream_options": { "include_usage": true },
+    "messages": [
+      { "role": "system", "content": "Plan system." },
+      { "role": "user", "content": "Context." },
+      { "role": "user", "content": "Plan the change." },
+      { "role": "assistant", "content": "Here is a first outline." },
+      { "role": "user", "content": "Make it shorter." }
+    ],
+    "tools": [
+      { "type": "function", "function": { "name": "read_file", "description": "Read a file" } },
+      {
+        "type": "function",
+        "function": { "name": "runSubagent", "description": "Run a sub-agent" }
+      }
+    ],
+    "tool_choice": "required"
+  }
+}

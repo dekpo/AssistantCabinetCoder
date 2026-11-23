@@ -1,0 +1,528 @@
+/* The chat panel's look. Only the theme variables of VS Code: it follows light, dark and contrast themes. */
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 4px 10px 10px;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+svg {
+  display: block;
+}
+
+/* The header: the conversation's title, then icons. */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 26px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.notice,
+.local-error {
+  padding: 6px 8px;
+  border-left: 3px solid var(--vscode-editorWarning-foreground);
+  border-radius: 3px;
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+  white-space: pre-wrap;
+}
+
+/* The saved conversations. */
+
+.history {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.empty {
+  color: var(--vscode-descriptionForeground);
+  padding: 4px 0;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 5px;
+}
+
+.entry:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.entry.current {
+  background: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.entry-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 8px;
+  text-align: left;
+  color: var(--vscode-foreground);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+}
+
+.entry-delete {
+  visibility: hidden;
+  margin-right: 4px;
+}
+
+.entry:hover .entry-delete,
+.entry-delete:focus-visible {
+  visibility: visible;
+}
+
+.entry-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-date {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.history:not([hidden]) ~ .turns {
+  display: none;
+}
+
+/* The conversation. */
+
+.turns {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 2px;
+}
+
+.turn.user {
+  align-self: stretch;
+}
+
+.turn.user .user-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 6px 10px;
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+  border-radius: 6px;
+  background: var(--vscode-input-background);
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.answer {
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.answer:empty {
+  display: none;
+}
+
+.answer p {
+  margin: 0.4em 0;
+  white-space: pre-wrap;
+}
+
+.answer > :first-child {
+  margin-top: 0;
+}
+
+.answer h1,
+.answer h2,
+.answer h3,
+.answer h4,
+.answer h5,
+.answer h6 {
+  margin: 0.7em 0 0.3em;
+  line-height: 1.25;
+}
+
+.answer h1 {
+  font-size: 1.4em;
+}
+
+.answer h2 {
+  font-size: 1.25em;
+}
+
+.answer h3 {
+  font-size: 1.1em;
+}
+
+.answer h4,
+.answer h5,
+.answer h6 {
+  font-size: 1em;
+}
+
+.answer ul,
+.answer ol {
+  margin: 0.3em 0;
+  padding-left: 1.4em;
+}
+
+.answer li.indent-1 {
+  margin-left: 1.2em;
+}
+
+.answer li.indent-2 {
+  margin-left: 2.4em;
+}
+
+.answer li.indent-3 {
+  margin-left: 3.6em;
+}
+
+.answer li.indent-4 {
+  margin-left: 4.8em;
+}
+
+.inline-code,
+.code-block pre {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+}
+
+.inline-code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.code-block {
+  margin: 0.5em 0;
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 6px;
+  background: var(--vscode-textCodeBlock-background);
+  overflow: hidden;
+}
+
+.code-language {
+  padding: 3px 10px;
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  border-bottom: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* The phase of the answer that is coming, where its words will appear. */
+
+.phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vscode-progressBar-background, var(--vscode-focusBorder));
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.phase.answering .pulse {
+  background: var(--vscode-charts-green, var(--vscode-progressBar-background));
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.note {
+  margin-top: 4px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+/* The agent loop (Lot P0b): one compact line per tool call, inside the answer. */
+
+.phase.tool .pulse {
+  background: var(--vscode-charts-blue, var(--vscode-progressBar-background));
+}
+
+.phase.approval .pulse {
+  background: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
+}
+
+.tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 8px;
+}
+
+.tool-call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textCodeBlock-background, transparent);
+}
+
+.tool-icon {
+  display: flex;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+}
+
+.tool-label {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.tool-target {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.95em;
+}
+
+.tool-note::before {
+  content: "\00b7  ";
+}
+
+.tool-call.running .tool-icon {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.tool-call.failed .tool-note,
+.tool-call.rejected .tool-note {
+  color: var(--vscode-editorError-foreground);
+}
+
+.tool-call.accepted .tool-note {
+  color: var(--vscode-charts-green, var(--vscode-foreground));
+}
+
+.tool-call.awaiting {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.decisions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.decision.accept {
+  color: var(--vscode-charts-green, var(--vscode-foreground));
+}
+
+.decision.reject {
+  color: var(--vscode-editorError-foreground);
+}
+
+.tools-note {
+  padding: 4px 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.95em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-call.running .tool-icon {
+    animation: none;
+  }
+}
+
+.failure {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--vscode-editorError-foreground);
+  border-radius: 3px;
+  background: var(--vscode-inputValidation-errorBackground, transparent);
+  white-space: pre-wrap;
+}
+
+/* The composer: the input, a thin line, then the model and the send or stop button. */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+  border-radius: 8px;
+  background: var(--vscode-input-background);
+  cursor: text;
+}
+
+.composer:focus-within {
+  border-color: var(--vscode-focusBorder);
+}
+
+.input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  max-height: 40vh;
+  resize: none;
+  overflow-y: auto;
+  color: var(--vscode-input-foreground);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 10px 6px;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 8px;
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  cursor: default;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.model {
+  max-width: 70%;
+  min-width: 0;
+  color: var(--vscode-foreground);
+  background: var(--vscode-toolbar-hoverBackground, transparent);
+  border: none;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+.model:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  border: none;
+  border-radius: 6px;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.send.stop svg {
+  width: 12px;
+  height: 12px;
+}

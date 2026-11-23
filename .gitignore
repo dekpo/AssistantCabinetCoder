@@ -1,5 +1,4 @@
-# Local session prompts: never committed
-docs/SESSION/
+# The session prompts in docs/SESSION/ are tracked (owner decision D-021, 19 November 2026).
 docs/SESSION-*.md
 
 # Dependencies and build output
