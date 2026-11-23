@@ -5,11 +5,36 @@
  * file of another shape or of a newer format is "unreadable" and is left on disk untouched.
  */
 import { isMachineCode, type OverflowNumbers } from "./codes";
-import type { AnswerState, AssistantTurn, Conversation, Turn } from "./conversation";
+import type {
+  AnswerState,
+  AssistantTurn,
+  Conversation,
+  ToolRound,
+  ToolStep,
+  ToolStepStatus,
+  Turn,
+} from "./conversation";
 import { ALIAS_PATTERN, CONVERSATION_ID_PATTERN } from "./protocol";
 
-/** The format written by this version. A file with a higher number is not read. */
-export const HISTORY_FORMAT = 1;
+/**
+ * The format written by this version. A file with a higher number is not read. Format 2 (Lot P0b)
+ * adds the steps an answer took with tools; a file of format 1 is still read (it has none).
+ */
+export const HISTORY_FORMAT = 2;
+/** The formats this version reads. */
+export const READABLE_FORMATS: readonly number[] = [1, 2];
+/** The format of the index, which did not change with the conversations' format 2. */
+export const INDEX_FORMAT = 1;
+/** The longest call id, tool name, arguments' text and note of a saved tool call. */
+const MAX_CALL_ID_CHARS = 256;
+const MAX_NOTE_CHARS = 200;
+const TOOL_STATUSES: readonly ToolStepStatus[] = [
+  "done",
+  "failed",
+  "accepted",
+  "rejected",
+  "stopped",
+];
 /** The longest text of one turn that is read back, in characters. */
 export const MAX_TURN_CHARS = 16_000_000;
 
@@ -104,7 +129,72 @@ function readTurn(value: unknown): Turn | undefined {
       turn[field] = count;
     }
   }
+  if (record["stepLimit"] === true) {
+    turn.stepLimit = true;
+  }
+  if (record["steps"] !== undefined) {
+    const steps = readSteps(record["steps"]);
+    if (steps === undefined) {
+      return undefined;
+    }
+    turn.steps = steps;
+  }
   return turn;
+}
+
+/** The steps an answer took with tools (format 2), strictly: one wrong field refuses the file. */
+function readSteps(value: unknown): ToolRound[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const rounds: ToolRound[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    if (record === undefined || !isText(record["text"], MAX_TURN_CHARS)) {
+      return undefined;
+    }
+    if (!Array.isArray(record["calls"])) {
+      return undefined;
+    }
+    const calls: ToolStep[] = [];
+    for (const entry of record["calls"]) {
+      const call = readCall(entry);
+      if (call === undefined) {
+        return undefined;
+      }
+      calls.push(call);
+    }
+    rounds.push({ text: record["text"], calls });
+  }
+  return rounds;
+}
+
+function readCall(value: unknown): ToolStep | undefined {
+  const record = asRecord(value);
+  if (
+    record === undefined ||
+    !isText(record["id"], MAX_CALL_ID_CHARS) ||
+    !isText(record["name"], MAX_CALL_ID_CHARS) ||
+    !isText(record["arguments"], MAX_TURN_CHARS)
+  ) {
+    return undefined;
+  }
+  const call: ToolStep = { id: record["id"], name: record["name"], arguments: record["arguments"] };
+  const result = record["result"];
+  if (result !== undefined) {
+    if (!isText(result, MAX_TURN_CHARS)) {
+      return undefined;
+    }
+    call.result = result;
+  }
+  const status = TOOL_STATUSES.find((candidate) => candidate === record["status"]);
+  if (status !== undefined) {
+    call.status = status;
+  }
+  if (isText(record["note"], MAX_NOTE_CHARS)) {
+    call.note = record["note"];
+  }
+  return call;
 }
 
 /** The conversation of a file's text, or `undefined` when the file cannot be read as one. */
@@ -118,7 +208,7 @@ export function parseConversation(text: string): Conversation | undefined {
   const record = asRecord(parsed);
   if (
     record === undefined ||
-    record["format"] !== HISTORY_FORMAT ||
+    !READABLE_FORMATS.includes(record["format"] as number) ||
     !isConversationId(record["id"]) ||
     !isText(record["title"], 1000) ||
     !isTime(record["createdAt"]) ||
@@ -180,7 +270,7 @@ export function parseIndex(text: string): ConversationSummary[] | undefined {
     return undefined;
   }
   const record = asRecord(parsed);
-  if (record?.["format"] !== HISTORY_FORMAT || !Array.isArray(record["entries"])) {
+  if (record?.["format"] !== INDEX_FORMAT || !Array.isArray(record["entries"])) {
     return undefined;
   }
   const entries: ConversationSummary[] = [];
@@ -200,5 +290,5 @@ export function parseIndex(text: string): ConversationSummary[] | undefined {
 }
 
 export function serializeIndex(entries: readonly ConversationSummary[]): string {
-  return JSON.stringify({ format: HISTORY_FORMAT, entries: sortSummaries(entries) });
+  return JSON.stringify({ format: INDEX_FORMAT, entries: sortSummaries(entries) });
 }

@@ -336,6 +336,99 @@ svg {
   font-style: italic;
 }
 
+/* The agent loop (Lot P0b): one compact line per tool call, inside the answer. */
+
+.phase.tool .pulse {
+  background: var(--vscode-charts-blue, var(--vscode-progressBar-background));
+}
+
+.phase.approval .pulse {
+  background: var(--vscode-charts-yellow, var(--vscode-editorWarning-foreground));
+}
+
+.tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 8px;
+}
+
+.tool-call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textCodeBlock-background, transparent);
+}
+
+.tool-icon {
+  display: flex;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+}
+
+.tool-label {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+.tool-target {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.95em;
+}
+
+.tool-note::before {
+  content: "\00b7  ";
+}
+
+.tool-call.running .tool-icon {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.tool-call.failed .tool-note,
+.tool-call.rejected .tool-note {
+  color: var(--vscode-editorError-foreground);
+}
+
+.tool-call.accepted .tool-note {
+  color: var(--vscode-charts-green, var(--vscode-foreground));
+}
+
+.tool-call.awaiting {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.decisions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.decision.accept {
+  color: var(--vscode-charts-green, var(--vscode-foreground));
+}
+
+.decision.reject {
+  color: var(--vscode-editorError-foreground);
+}
+
+.tools-note {
+  padding: 4px 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.95em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-call.running .tool-icon {
+    animation: none;
+  }
+}
+
 .failure {
   margin-top: 4px;
   padding: 6px 8px;

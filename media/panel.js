@@ -41,15 +41,17 @@
     return typeof labels[key] === "string" ? labels[key] : "";
   }
 
-  // The page's icons, copied on demand.
-  const iconSource = document.getElementById("icons");
+  // The page's icons, copied on demand: the panel's own, then those of the tools.
+  const iconSources = [document.getElementById("icons"), document.getElementById("tool-icons")];
 
   function icon(name) {
-    const children = iconSource ? iconSource.children : [];
-    for (let index = 0; index < children.length; index++) {
-      const candidate = children[index];
-      if (candidate.getAttribute && candidate.getAttribute("data-icon") === name) {
-        return candidate.cloneNode(true);
+    for (const source of iconSources) {
+      const children = source ? source.children : [];
+      for (let index = 0; index < children.length; index++) {
+        const candidate = children[index];
+        if (candidate.getAttribute && candidate.getAttribute("data-icon") === name) {
+          return candidate.cloneNode(true);
+        }
       }
     }
     return el("span", "icon-missing");
@@ -76,6 +78,7 @@
   const notice = el("div", "notice");
   const historyView = el("div", "history");
   const turnsView = el("div", "turns");
+  const toolsNote = el("div", "tools-note");
   const localError = el("div", "local-error");
   const composer = el("div", "composer");
   const input = el("textarea", "input");
@@ -86,7 +89,7 @@
   const sendButton = el("button", "send");
   toolbar.append(modelSelect, spacer, sendButton);
   composer.append(input, toolbar);
-  app.append(header, notice, historyView, turnsView, localError, composer);
+  app.append(header, notice, historyView, turnsView, toolsNote, localError, composer);
 
   function busy() {
     return state !== undefined && state.phase !== "idle";
@@ -160,7 +163,58 @@
     stoppedAnswering: "stoppedAnswering",
     interrupted: "interrupted",
     lengthReached: "lengthReached",
+    stepLimit: "stepLimit",
   };
+
+  const TOOL_ICON_NAMES = ["read", "list", "search", "edit", "tool"];
+  const CALL_STATUSES = [
+    "running",
+    "awaiting",
+    "done",
+    "failed",
+    "accepted",
+    "rejected",
+    "stopped",
+  ];
+
+  /** An icon button of a change waiting for the user's decision. */
+  function decisionButton(name, key, type) {
+    const button = el("button", "icon-button decision " + name);
+    setIcon(button, name, key);
+    button.addEventListener("click", function () {
+      post({ type: type });
+    });
+    return button;
+  }
+
+  /** One tool call: its icon, its verb and its path or query, a note, and the decision buttons. */
+  function callNode(call) {
+    const status = CALL_STATUSES.indexOf(call.status) >= 0 ? call.status : "running";
+    const node = el("div", "tool-call " + status);
+    const iconName = TOOL_ICON_NAMES.indexOf(call.icon) >= 0 ? call.icon : "tool";
+    const mark = el("span", "tool-icon");
+    mark.append(icon(iconName));
+    node.append(mark, el("span", "tool-label", call.label), el("span", "tool-target", call.target));
+    if (call.note) {
+      node.append(el("span", "tool-note", call.note));
+    }
+    if (status === "awaiting") {
+      const actions = el("span", "decisions");
+      actions.append(
+        decisionButton("diff", "showDiff", "showDiff"),
+        decisionButton("reject", "reject", "rejectEdit"),
+        decisionButton("accept", "accept", "acceptEdit"),
+      );
+      node.append(actions);
+    }
+    return node;
+  }
+
+  function appendBlocks(body, blocks) {
+    for (const block of blocks || []) {
+      body.append(blockNode(block));
+    }
+  }
 
   function turnNode(turn) {
     if (turn.role === "user") {
@@ -171,9 +225,15 @@
     const node = el("div", "turn assistant" + (turn.pending ? " pending" : ""));
     node.title = turn.model;
     const body = el("div", "answer");
-    for (const block of turn.blocks || []) {
-      body.append(blockNode(block));
+    for (const round of turn.steps || []) {
+      appendBlocks(body, round.blocks);
+      const calls = el("div", "tool-calls");
+      for (const call of round.calls || []) {
+        calls.append(callNode(call));
+      }
+      body.append(calls);
     }
+    appendBlocks(body, turn.blocks);
     node.append(body);
     if (turn.pending) {
       const phase = el("div", "phase");
@@ -292,15 +352,16 @@
       typeof state.since === "number"
         ? Math.max(0, Math.floor((Date.now() - state.since) / 1000))
         : 0;
+    const PHASE_LABELS = {
+      reading: "reading",
+      answering: "answering",
+      tool: "runningTool",
+      approval: "awaitingDecision",
+    };
+    const phase = PHASE_LABELS[state.phase] ? state.phase : "answering";
     phaseNode.hidden = false;
-    phaseNode.className = "phase " + (state.phase === "reading" ? "reading" : "answering");
-    text.textContent =
-      label(state.phase === "reading" ? "reading" : "answering") +
-      " (" +
-      elapsed +
-      " " +
-      label("seconds") +
-      ")";
+    phaseNode.className = "phase " + phase;
+    text.textContent = label(PHASE_LABELS[phase]) + " (" + elapsed + " " + label("seconds") + ")";
   }
 
   function drawSendButton() {
@@ -328,6 +389,8 @@
     input.setAttribute("aria-label", label("placeholder"));
     notice.textContent = state.notice || "";
     notice.hidden = !state.notice;
+    toolsNote.textContent = state.toolsNote || "";
+    toolsNote.hidden = !state.toolsNote;
     if (busy() && ticker === undefined) {
       ticker = setInterval(drawPhase, 1000);
     } else if (!busy() && ticker !== undefined) {
@@ -465,6 +528,7 @@
 
   showLocalError("");
   notice.hidden = true;
+  toolsNote.hidden = true;
   historyView.hidden = true;
   post({ type: "ready" });
 })();

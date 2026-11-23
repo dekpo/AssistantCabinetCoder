@@ -34,6 +34,11 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 - Run the targeted test while working; the full suite, `npm run lint` and `npm run format` once at the end.
 - An existing test is never edited to make it pass: stop and tell the owner.
 - Never claim what was not shown: the agent cannot see the owner's screen, so every editor step is the owner's.
+- Human tests (owner, 23 November 2026): no step needs an action faster than about 20 seconds (a stop scenario leaves 20 to 30 seconds of window), and the owner is never asked what they saw or felt during a few seconds. The agent checks that itself (stub console, log, files, the screenshots already sent) and asks only for unhurried clicks, texts to paste (given ready to copy) and named screenshots.
+
+## Sessions
+
+- Every session starts from a prompt file prepared in advance from the implementation plan (`docs/SESSION/SESSION-<lot>.md`), launched by the owner in a **new chat tab**, so that each session leaves its own trace. One chat never runs across lots: at the end of a lot the agent writes the handoff (run record, decisions, lessons) and aligns the next prompt file before stopping, and says which file to launch.
 
 ## What never to touch
 
@@ -58,6 +63,8 @@ Short form of the binding rules. The practices are in `docs/VIBE-CODING-PRACTICE
 | Sources                    | `src/`, tests in `test/`, stub gateway in `test/stub-gateway/`                                                                                                                           |
 | Source modules             | `codes`, `platform`, `discovery`, `transport`, `sse`, `client`, `keys`, `convert`, `tokens`, `provider`, `tools`, `agents`, `log`, `messages`, plus the thin VS Code adapter `extension` |
 | Chat panel modules         | `protocol`, `render`, `conversation`, `history`, `store` (the only writer), `chat`, `session`, `page`, plus the thin VS Code adapter `panel`                                             |
+| Panel agent modules (P0b)  | `agent` (the loop), `tools` (what the model reads, the runners), `workspace` (path rules, read-only file system); the editor side in `extension` (`editorWorkspace`)                     |
+| Panel tool names (P0b)     | `read_file`, `list_files`, `search_text`, `propose_edit` (model-facing; an edit is applied by `WorkspaceEdit` only after the user's Accept)                                              |
 | Chat panel                 | view container `assistantCabinetCoder` (title `Assistant Cabinet Coder`, in `secondarySidebar`, icon `images/panel.svg`), webview view `assistantCabinetCoder.chat` (name `Chat`)        |
 | Webview files              | `media/panel.js`, `media/panel.css` (no framework, no build step)                                                                                                                        |
 | Saved conversations        | `<storageUri>/conversations/<id>.json` and `index.json` (no folder open: `<globalStorageUri>/no-folder/conversations/`); workspace state key `assistantCabinetCoder.panelModel`          |

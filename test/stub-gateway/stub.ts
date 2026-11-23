@@ -58,7 +58,35 @@ export type Scenario =
   | "long"
   | "cut"
   | "refuse"
-  | "markup";
+  | "markup"
+  | AgentScenario;
+
+/**
+ * The scripted scenarios of the panel's agent loop (Lot P0b). The step is the number of `tool`
+ * messages after the last real user message; the marker's argument is a path, which may hold
+ * slashes (`[stub:agent-edit:src/notes.txt]`).
+ *   `agent-steps`: `list_files`, then `read_file` of the path, then `search_text` of "a", then a
+ *     closing text (three tool steps and a final answer);
+ *   `agent-edit`: `read_file` of the path, then `propose_edit` of its first non-empty line (that
+ *     line followed by " [edited by the stub]"), or the creation of the file when the read failed,
+ *     then a closing text;
+ *   `agent-loop`: `read_file` of the path at every step, never a final answer, each answer after
+ *     `loopStepMs` (for the step limit and a stop in the middle of the loop);
+ *   `agent-bad-args`: `read_file` with arguments that are not JSON, then a closing text.
+ */
+export type AgentScenario = "agent-steps" | "agent-edit" | "agent-loop" | "agent-bad-args";
+
+export const AGENT_SCENARIOS: readonly AgentScenario[] = [
+  "agent-steps",
+  "agent-edit",
+  "agent-loop",
+  "agent-bad-args",
+];
+
+/** The text `agent-edit` appends to the line it changes. */
+export const STUB_EDIT_SUFFIX = " [edited by the stub]";
+/** The text `agent-edit` writes in a file it creates. */
+export const STUB_CREATED_TEXT = "Created by the stub.\n";
 
 export const SCENARIOS: readonly Scenario[] = [
   "text",
@@ -72,6 +100,7 @@ export const SCENARIOS: readonly Scenario[] = [
   "cut",
   "refuse",
   "markup",
+  ...AGENT_SCENARIOS,
 ];
 
 /**
@@ -118,6 +147,8 @@ export interface StubOptions {
   /** Pause between two chunks of the `long` scenario (default 250) and how many it sends (240). */
   longChunkMs?: number;
   longChunks?: number;
+  /** Delay before each answer of the `agent-loop` scenario (default 1000). */
+  loopStepMs?: number;
   /** Told when a chat request starts and when its answer ends (used by `npm run stub`). */
   onChat?: (event: ChatEvent) => void;
 }
@@ -365,6 +396,73 @@ function toolStream(choice: ToolChoice): string[] {
   ];
 }
 
+/** One tool call whose arguments are given as text (so they may be malformed on purpose). */
+function rawToolStream(name: string, argumentsText: string): string[] {
+  return [
+    chunk({ role: "assistant", content: "" }),
+    chunk({
+      tool_calls: [
+        {
+          index: 0,
+          id: "call_000000000000000000000002",
+          type: "function",
+          function: { name, arguments: argumentsText },
+        },
+      ],
+    }),
+    chunk({}, "tool_calls"),
+    "data: [DONE]\n\n",
+  ];
+}
+
+/** The first non-empty line of a `read_file` result (`<number>\t<text>` lines), if any. */
+export function firstReadLine(result: string): string | undefined {
+  for (const line of result.split("\n")) {
+    const match = /^\d+\t(.*)$/.exec(line);
+    if (match !== null && (match[1] ?? "").trim() !== "") {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
+/** The call an agent scenario makes at this step, or `undefined` for the closing text. */
+function agentCall(request: ChatRequest): { name: string; args: string } | undefined {
+  const target = request.agentPath ?? "README.md";
+  const step = request.toolMessages;
+  switch (request.scenario) {
+    case "agent-steps":
+      return [
+        { name: "list_files", args: JSON.stringify({ path: "" }) },
+        { name: "read_file", args: JSON.stringify({ path: target }) },
+        { name: "search_text", args: JSON.stringify({ query: "a" }) },
+      ][step];
+    case "agent-edit": {
+      if (step === 0) {
+        return { name: "read_file", args: JSON.stringify({ path: target }) };
+      }
+      if (step > 1) {
+        return undefined;
+      }
+      const line = firstReadLine(request.lastToolResult);
+      return {
+        name: "propose_edit",
+        args: JSON.stringify(
+          line === undefined
+            ? { path: target, old_text: "", new_text: STUB_CREATED_TEXT }
+            : { path: target, old_text: line, new_text: `${line}${STUB_EDIT_SUFFIX}` },
+        ),
+      };
+    }
+    case "agent-loop":
+      return { name: "read_file", args: JSON.stringify({ path: target }) };
+    case "agent-bad-args":
+      return step === 0 ? { name: "read_file", args: "{not json" } : undefined;
+    default:
+      return undefined;
+  }
+}
+
 function closingStream(): string[] {
   return [
     chunk({ role: "assistant", content: "" }),
@@ -431,6 +529,12 @@ interface ChatRequest {
   /** The tool a marker such as `[stub:tool-call:create_file]` asks for. */
   wantedTool: string | undefined;
   promptChars: number;
+  /** The `tool` messages after the last real user message: the step of an agent scenario. */
+  toolMessages: number;
+  /** The text of the last `tool` message. */
+  lastToolResult: string;
+  /** The path an agent scenario's marker names. */
+  agentPath: string | undefined;
 }
 
 type Loose = Record<string, unknown>;
@@ -469,6 +573,9 @@ function parseChatRequest(text: string): ChatRequest {
     closing: false,
     wantedTool: undefined,
     promptChars: 0,
+    toolMessages: 0,
+    lastToolResult: "",
+    agentPath: undefined,
   };
   let body: Loose | undefined;
   try {
@@ -495,7 +602,12 @@ function parseChatRequest(text: string): ChatRequest {
   );
   let lastRealUser = -1;
   messages.forEach((message, index) => {
-    if (message["role"] === "user" && messages[index - 1]?.["role"] !== "tool") {
+    // A user message right after a tool message is the editor's carrier of a tool's image (a list
+    // of parts); a plain text there is a real message, as the chat panel sends after a stopped loop.
+    if (
+      message["role"] === "user" &&
+      (messages[index - 1]?.["role"] !== "tool" || typeof message["content"] === "string")
+    ) {
       lastRealUser = index;
     }
     if (Array.isArray(message["content"])) {
@@ -519,6 +631,17 @@ function parseChatRequest(text: string): ChatRequest {
   request.wantedTool = marker?.[2];
   const chosen = typeof named === "string" ? named : marker?.[1];
   request.scenario = SCENARIOS.find((scenario) => scenario === chosen);
+  // The agent scenarios' markers may name a path with slashes, which the marker above refuses.
+  const agentMarker = /\[stub:(agent-[a-z-]+)(?::([^\]\s]{1,200}))?\]/.exec(
+    textOf(messages[lastRealUser]?.["content"]),
+  );
+  if (agentMarker !== null && typeof named !== "string") {
+    request.scenario = AGENT_SCENARIOS.find((scenario) => scenario === agentMarker[1]);
+    request.agentPath = agentMarker[2];
+  }
+  const after = messages.slice(lastRealUser + 1).filter((message) => message["role"] === "tool");
+  request.toolMessages = after.length;
+  request.lastToolResult = textOf(after[after.length - 1]?.["content"]);
   return request;
 }
 
@@ -569,6 +692,25 @@ async function chat(
       : undefined;
   const textStream = (): string => withUsage(TEXT_STREAM, usage(TEXT_COMPLETION_CHARS)).join("");
   switch (request.scenario ?? "text") {
+    case "agent-steps":
+    case "agent-edit":
+    case "agent-loop":
+    case "agent-bad-args": {
+      if (request.scenario === "agent-loop") {
+        await sleep(options.loopStepMs ?? 1000);
+        if (res.destroyed) {
+          return;
+        }
+      }
+      const call = agentCall(request);
+      sse(res);
+      res.end(
+        call === undefined
+          ? withUsage(closingStream(), usage(CLOSING_TEXT.length)).join("")
+          : withUsage(rawToolStream(call.name, call.args), usage(call.args.length)).join(""),
+      );
+      return;
+    }
     case "refuse": {
       const code = request.wantedTool ?? "context_too_large";
       const data =

@@ -25,8 +25,25 @@ export const ICONS: Readonly<Record<string, string>> = {
     "M6 1.8h4V3h3.2v1.2H2.8V3H6zM4 5h1.2v8h5.6V5H12v9.2H4zm2.2 1.2h1.1v5.6H6.2zm2.5 0h1.1v5.6H8.7z",
 };
 
-function iconMarkup(): string {
-  return Object.entries(ICONS)
+/**
+ * The icons of the agent loop (Lot P0b), drawn the same way in a second hidden element:
+ * `read` a page, `list` a folder, `search` a magnifier, `edit` a pencil, `tool` a circle (a tool
+ * the extension does not know), `accept` a check mark, `reject` a cross, `diff` two panes.
+ */
+export const TOOL_ICONS: Readonly<Record<string, string>> = {
+  read: "M3.5 1.5h6l3 3v10h-9zm1.2 1.2v10.6h6.6V5.2H8.8V2.7zm5.3.5v1.3h1.3zM6 7.4h4v1.1H6zm0 2.3h4v1.1H6z",
+  list: "M1.5 3h4.3l1.4 1.5h7.3V13h-13zm1.2 1.2v7.6h10.6V5.7H6.7L5.3 4.2z",
+  search:
+    "M6.8 2a4.8 4.8 0 1 0 2.9 8.6l3.3 3.3.9-.9-3.3-3.3A4.8 4.8 0 0 0 6.8 2zm0 1.2a3.6 3.6 0 1 1 0 7.2 3.6 3.6 0 0 1 0-7.2z",
+  edit: "M11.3 1.8l2.9 2.9-8.4 8.4-3.6.7.7-3.6zm0 1.7L4.1 10.7l-.3 1.5 1.5-.3 7.2-7.2z",
+  tool: "M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm0 1.2a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6zM6.5 6.5h3v3h-3z",
+  accept: "M13.2 4.2l.9.9-7.6 7.6L2 8.2l.9-.9 3.6 3.6z",
+  reject: "M3.6 2.7 8 7.1l4.4-4.4.9.9L8.9 8l4.4 4.4-.9.9L8 8.9l-4.4 4.4-.9-.9L7.1 8 2.7 3.6z",
+  diff: "M1.5 2.5h13v11h-13zm1.2 1.2v8.6h4.7V3.7zm5.9 0v8.6h4.7V3.7zM3.6 7.4h2.9v1.2H3.6zm5.9 0h1v-1h1.2v1h1v1.2h-1v1h-1.2v-1h-1z",
+};
+
+function iconMarkup(icons: Readonly<Record<string, string>> = ICONS): string {
+  return Object.entries(icons)
     .map(
       ([name, path]) =>
         `<svg data-icon="${name}" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${path}"/></svg>`,
@@ -79,6 +96,7 @@ export function panelHtml(parts: PageParts): string {
     "</head>",
     "<body>",
     `<div id="icons" hidden>${iconMarkup()}</div>`,
+    `<div id="tool-icons" hidden>${iconMarkup(TOOL_ICONS)}</div>`,
     '<div id="app"></div>',
     `<script nonce="${attribute(parts.nonce)}" src="${attribute(parts.scriptUri)}"></script>`,
     "</body>",

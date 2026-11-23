@@ -157,3 +157,15 @@ One numbered entry per mistake already made, written the moment it is found: wha
 23 November 2026, Part 5 of the human test of Lot P0a. The script sent `hello` in the same conversation as the stopped long question, so `hello` carried the 60 000 characters again and its wait could not be told apart from the old reading. The retry used the same long text, which the server had kept from the first try, so the first word came after 117 ms and the stop fell while answering. Only a third try, with a new conversation and a text the server had never read, measured what was meant.
 
 **Rule:** a measure of what follows a stop sends the next request in a **new** conversation, and a stop before the first word uses a text the server has **never read** (one per try, never reused). The agent reads the log before calling the try done: the stopped line must have no status and no `first_ms`.
+
+## 27. Lessons 4 and 18 happened again in Lot P0b
+
+23 November 2026. (1) The agent changed `src/protocol.ts` with a Python script fed by a shell heredoc whose replacement text held comments, which lessons 8, 18 and 21 forbid; the file came out intact (read back, compiled, covered by the suite), but only by luck. (2) The comments of `src/workspace.ts` and `src/tools.ts` named the editor's edit class and the wrong module; the new guard that keeps that class in the adapter failed on the comment (lesson 4), and the comments were corrected.
+
+**Rule:** lessons 8, 18 and 21 again: every change to a source or a document, even a mechanical one, is made with the editing tool; a shell command may only carry a one-line code substitution (`sed` on a version number). A comment that explains where a forbidden construct lives names the module, not the construct.
+
+## 28. The stub took a message after a stopped loop for a tool's image and replayed the old scenario
+
+23 November 2026, Part 2 of `docs/human-tests/P0b-panel-agent.md`. After a loop stopped by **Stop**, the conversation ends with `tool` messages, so the next user message directly follows a tool message. The stub chose its scenario from "the last user message that does not directly follow a tool message", a rule written for the editor's chat, which puts a tool's image in such a message. It therefore read the marker of the stopped message (`agent-loop`) instead of the new one (`agent-edit`), and the step showed three reads instead of an edit. The extension had sent the right conversation; only the stub's choice was wrong. The unit tests had never sent a message after a stopped loop.
+
+**Rule:** a scripted stub that guesses which message is "real" is tested with every shape of conversation the client can produce, including after a stop and after a failure. A user message after a tool message is a real message when its content is plain text; only a list of parts is a tool's image.

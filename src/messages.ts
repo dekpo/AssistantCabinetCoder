@@ -6,8 +6,10 @@
 import type { ConnectionReport, ConnectionState } from "./client";
 import type { MachineCode } from "./codes";
 import type { OverflowNumbers } from "./codes";
+import { MAX_STEPS } from "./agent";
 import type { ConvertReason } from "./convert";
 import type { NoServerReason } from "./discovery";
+import type { ToolReason } from "./tools";
 
 /** One sentence per machine code. */
 export const CODE_MESSAGES: Record<MachineCode, string> = {
@@ -306,3 +308,69 @@ export const PANEL = {
 } as const;
 
 export type PanelLabels = Omit<typeof PANEL, "tooLong" | "deleteConfirm">;
+
+/**
+ * The panel's texts for the agent loop and its tools (Lot P0b). The webview receives them with the
+ * other labels; the notes under a tool line are built here and sent ready to show.
+ */
+export const AGENT_PANEL = {
+  // The tool lines: a verb, then the path or the searched text.
+  toolRead: "Read",
+  toolList: "List",
+  toolSearch: "Search",
+  toolEdit: "Edit",
+  toolOther: "Tool",
+  // The icons' tooltips of a change waiting for a decision.
+  accept: "Accept",
+  reject: "Reject",
+  showDiff: "Show the change",
+  // The phases that follow a step of the model.
+  runningTool: "Using a tool",
+  awaitingDecision: "Waiting for your decision",
+  stepLimit: `The model used the ${MAX_STEPS} steps allowed for one message and was stopped. Send another message to let it continue.`,
+  toolsUntrusted:
+    "Tools are off: this workspace is not trusted, so the model can only chat. Trust the workspace to let it read and change files.",
+  toolsNoFolder: "Tools are off: open a folder to let the model read and change its files.",
+  toolsModel:
+    "This model does not report tool calling, so it can only chat. Choose another model to let it read and change files.",
+} as const;
+
+/** The title of the editor's diff view of a proposed change. */
+export function describeProposalTitle(display: string): string {
+  return `${display} (proposed change)`;
+}
+
+const TOOL_REASON_NOTES: Record<ToolReason, string> = {
+  unknown_tool: "unknown tool",
+  invalid_arguments: "invalid arguments",
+  no_workspace: "no folder open",
+  invalid_path: "invalid path",
+  outside_workspace: "outside the project folder",
+  not_found: "not found",
+  not_a_file: "not a file",
+  not_a_folder: "not a folder",
+  too_large: "file too large",
+  binary: "not a text file",
+  unreadable: "cannot be read",
+  text_not_found: "text to replace not found",
+  text_not_unique: "text to replace found more than once",
+  file_missing: "file does not exist",
+  file_exists: "file already exists",
+  no_change: "nothing to change",
+  file_changed: "the file changed meanwhile",
+  unsaved_changes: "unsaved changes in the editor",
+  not_applied: "could not be applied",
+};
+
+/** The short note beside a tool line in the panel. */
+export const TOOL_NOTES = {
+  lines: (from: number, to: number, total: number): string =>
+    to < from ? `no lines (the file has ${total})` : `lines ${from}-${to} of ${total}`,
+  entries: (count: number): string => (count === 1 ? "1 entry" : `${count} entries`),
+  matches: (count: number): string =>
+    count === 0 ? "no match" : count === 1 ? "1 match" : `${count} matches`,
+  accepted: "accepted",
+  rejected: "rejected",
+  stopped: "stopped",
+  reason: (reason: ToolReason): string => TOOL_REASON_NOTES[reason],
+} as const;

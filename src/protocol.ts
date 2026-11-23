@@ -23,9 +23,19 @@ export type WebviewMessage =
   | { type: "newConversation" }
   | { type: "openConversation"; id: string }
   | { type: "deleteConversation"; id: string }
-  | { type: "selectModel"; model: string };
+  | { type: "selectModel"; model: string }
+  | { type: "acceptEdit" }
+  | { type: "rejectEdit" }
+  | { type: "showDiff" };
 
-const NO_FIELDS = new Set(["ready", "stop", "newConversation"]);
+const NO_FIELDS = new Set([
+  "ready",
+  "stop",
+  "newConversation",
+  "acceptEdit",
+  "rejectEdit",
+  "showDiff",
+]);
 
 function exactKeys(record: Record<string, unknown>, keys: readonly string[]): boolean {
   const own = Object.keys(record);
@@ -88,7 +98,34 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
 
 /** What a stop or an end left on an answer, for the note under it. */
 export type AnswerNote =
-  "none" | "stoppedReading" | "stoppedAnswering" | "interrupted" | "lengthReached" | "failed";
+  | "none"
+  | "stoppedReading"
+  | "stoppedAnswering"
+  | "interrupted"
+  | "lengthReached"
+  | "failed"
+  | "stepLimit";
+
+/** The icon of a tool line. */
+export type ToolIcon = "read" | "list" | "search" | "edit" | "tool";
+
+/** One tool call as the panel draws it: a verb, a path or a searched text, never content. */
+export interface ViewCall {
+  icon: ToolIcon;
+  /** The verb, from `messages.ts`. */
+  label: string;
+  target: string;
+  /** `running` while it runs, `awaiting` while a change waits for the user's decision. */
+  status: "running" | "awaiting" | "done" | "failed" | "accepted" | "rejected" | "stopped";
+  /** A short note from `messages.ts` (lines read, matches, why it failed). */
+  note: string | undefined;
+}
+
+/** One step of the loop that ended with tool calls: the text before the calls, then the calls. */
+export interface ViewRound {
+  blocks: Block[];
+  calls: ViewCall[];
+}
 
 /** One turn as the webview draws it: the user's text as it was typed, an answer as blocks. */
 export type ViewTurn =
@@ -101,6 +138,8 @@ export type ViewTurn =
       note: AnswerNote;
       /** The sentence of a failure, from `messages.ts`. */
       failure: string | undefined;
+      /** The steps taken with tools before `blocks` (Lot P0b); absent for a plain answer. */
+      steps?: ViewRound[];
     };
 
 export interface ViewConversationSummary {
@@ -109,7 +148,8 @@ export interface ViewConversationSummary {
   updatedAt: number;
 }
 
-export type Phase = "idle" | "reading" | "answering";
+/** `tool` while a tool runs, `approval` while a change waits for the user (Lot P0b). */
+export type Phase = "idle" | "reading" | "answering" | "tool" | "approval";
 
 export interface ViewState {
   conversationId: string | undefined;
@@ -124,6 +164,8 @@ export interface ViewState {
   notice: string | undefined;
   /** Text to put back in the input (a redrawn view, a refused send); `undefined` leaves it. */
   draft: string | undefined;
+  /** Why the tools are off (an untrusted workspace, no folder); absent when they are on. */
+  toolsNote?: string;
 }
 
 export type HostMessage =

@@ -30,6 +30,8 @@ async function main(): Promise<void> {
   // scenario and code names, the model and counts. Never a message, a tool name or an argument.
   const options: StubOptions = {
     mode,
+    // A person needs time to click Stop: 12 steps of 5 seconds give a minute (AGENTS.md).
+    loopStepMs: 5000,
     onChat: (event) => {
       const time = new Date().toISOString().slice(11, 19);
       const what = `scenario=${event.scenario}${event.code !== undefined ? ` code=${event.code}` : ""}`;

@@ -8,7 +8,7 @@ import * as vscode from "vscode";
 import type { CallRecord } from "./log";
 import { PANEL } from "./messages";
 import { newNonce, panelHtml } from "./page";
-import { ChatSession, type SessionResolution } from "./session";
+import { ChatSession, type SessionResolution, type SessionWorkspace } from "./session";
 import { FileStore, newConversationId } from "./store";
 
 export const VIEW_ID = "assistantCabinetCoder.chat";
@@ -17,6 +17,8 @@ const MODEL_KEY = "assistantCabinetCoder.panelModel";
 export interface PanelDeps {
   resolve(): Promise<SessionResolution>;
   log(record: CallRecord): void;
+  /** The workspace side of the panel's tools (Lot P0b), built by `extension`. */
+  workspace?: SessionWorkspace;
 }
 
 /** Where the conversations of this window are saved: the workspace's private storage. */
@@ -48,6 +50,7 @@ export function registerChatView(
     rememberModel: (model) => void context.workspaceState.update(MODEL_KEY, model),
     newId: (now) => newConversationId(now),
     clock: () => Date.now(),
+    ...(deps.workspace === undefined ? {} : { workspace: deps.workspace }),
   });
   const media = vscode.Uri.joinPath(context.extensionUri, "media");
 

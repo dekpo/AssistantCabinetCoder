@@ -9,8 +9,8 @@
  */
 import { failureFromResponse, type ClientOptions } from "./client";
 import { CabinetError, codeOf, type MachineCode, type OverflowNumbers } from "./codes";
-import type { ChatBody } from "./conversation";
-import type { CallRecord } from "./log";
+import type { ChatBody, RawToolCall } from "./conversation";
+import { toolNamesForLog, type CallRecord } from "./log";
 import { parseSse } from "./sse";
 import { open } from "./transport";
 
@@ -35,9 +35,76 @@ export interface ChatResult {
   completionTokens?: number | undefined;
   durationMs: number;
   firstMs?: number | undefined;
+  /** The tool calls of the answer, complete, in the order of their index (Lot P0b). */
+  toolCalls?: RawToolCall[] | undefined;
 }
 
 type Loose = Record<string, unknown>;
+
+/** The longest call id and tool name kept from the stream; longer ones are cut. */
+const MAX_CALL_FIELD_CHARS = 256;
+
+/** One piece of a tool call in a stream chunk (the server sends whole calls; split ones are joined). */
+export interface ToolCallDelta {
+  index: number;
+  id: string | undefined;
+  name: string | undefined;
+  arguments: string;
+}
+
+/** The tool call pieces a stream chunk carries, as the contract's section 3 describes them. */
+export function readToolCallDeltas(value: unknown): ToolCallDelta[] {
+  const record = asRecord(value);
+  const choice = Array.isArray(record?.["choices"]) ? asRecord(record["choices"][0]) : undefined;
+  const calls = asRecord(choice?.["delta"])?.["tool_calls"];
+  if (!Array.isArray(calls)) {
+    return [];
+  }
+  const out: ToolCallDelta[] = [];
+  calls.forEach((item: unknown, position: number) => {
+    const call = asRecord(item);
+    if (call === undefined) {
+      return;
+    }
+    const fn = asRecord(call["function"]);
+    const id = call["id"];
+    const name = fn?.["name"];
+    const args = fn?.["arguments"];
+    out.push({
+      index: count(call["index"]) ?? position,
+      id: typeof id === "string" ? id.slice(0, MAX_CALL_FIELD_CHARS) : undefined,
+      name: typeof name === "string" ? name.slice(0, MAX_CALL_FIELD_CHARS) : undefined,
+      arguments: typeof args === "string" ? args : "",
+    });
+  });
+  return out;
+}
+
+/** Joins the pieces of the tool calls by index, keeping the first id and name of each. */
+export class ToolCallCollector {
+  private readonly calls = new Map<number, RawToolCall>();
+
+  add(deltas: readonly ToolCallDelta[]): void {
+    for (const delta of deltas) {
+      const call = this.calls.get(delta.index) ?? { id: "", name: "", arguments: "" };
+      if (call.id === "" && delta.id !== undefined) {
+        call.id = delta.id;
+      }
+      if (call.name === "" && delta.name !== undefined) {
+        call.name = delta.name;
+      }
+      call.arguments += delta.arguments;
+      this.calls.set(delta.index, call);
+    }
+  }
+
+  /** The complete calls; a call without an id gets one from its index. */
+  done(): RawToolCall[] {
+    return [...this.calls.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([index, call]) => ({ ...call, id: call.id === "" ? `call_${index}` : call.id }));
+  }
+}
 
 function asRecord(value: unknown): Loose | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -83,6 +150,7 @@ export async function streamChat(
   const started = clock();
   const record: CallRecord = { call: "chat", alias: body.model, durationMs: 0 };
   const result: ChatResult = { outcome: "complete", phase: "reading", durationMs: 0 };
+  const collector = new ToolCallCollector();
   try {
     const reply = await open(options, {
       method: "POST",
@@ -112,6 +180,7 @@ export async function streamChat(
         if (piece.text !== "") {
           handlers.onText(piece.text);
         }
+        collector.add(readToolCallDeltas(event.value));
         result.finish = piece.finish ?? result.finish;
         if (piece.usage !== undefined) {
           result.promptTokens = piece.usage.prompt;
@@ -139,6 +208,12 @@ export async function streamChat(
     if (error instanceof CabinetError && error.overflow !== undefined && code !== "cancelled") {
       result.overflow = error.overflow;
     }
+  }
+  const calls = collector.done();
+  if (calls.length > 0 && result.outcome === "complete") {
+    result.toolCalls = calls;
+    record.toolCalls = calls.length;
+    record.tools = toolNamesForLog(calls.map((call) => call.name));
   }
   result.durationMs = clock() - started;
   record.durationMs = result.durationMs;

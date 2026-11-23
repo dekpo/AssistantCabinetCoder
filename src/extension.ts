@@ -18,6 +18,7 @@ import { CallLog } from "./log";
 import {
   describeCode,
   describeNoServer,
+  describeProposalTitle,
   formatReport,
   STATUS_LABELS,
   STATUS_TOOLTIP,
@@ -25,7 +26,10 @@ import {
 } from "./messages";
 import { registerChatView } from "./panel";
 import { ChatProvider, type Host, type Resolution } from "./provider";
+import type { SessionWorkspace } from "./session";
+import type { EditProposal } from "./tools";
 import { closeAgents, loadCaFile } from "./transport";
+import { nodeWorkspaceFs } from "./workspace";
 
 const PREFIX = "assistantCabinetCoder";
 const VENDOR = "assistantcabinetcoder";
@@ -49,6 +53,127 @@ function toSignal(token: vscode.CancellationToken): AbortSignal {
     token.onCancellationRequested(() => controller.abort());
   }
   return controller.signal;
+}
+
+/** The scheme of the read-only documents that show a proposed change in the diff view. */
+const PROPOSAL_SCHEME = "assistant-cabinet-coder-proposal";
+
+/**
+ * The editor side of the panel's tools (Lot P0b): whether they may run, the workspace folders, the
+ * read-only file system, the diff view of a proposed change (a read-only virtual document on the
+ * right) and the edit itself, applied with `WorkspaceEdit` only after the user's click, so that the
+ * editor's Undo reverts it, then saved so that the next read sees it.
+ */
+function editorWorkspace(): { workspace: SessionWorkspace; registration: vscode.Disposable } {
+  const contents = new Map<string, string>();
+  const views = new WeakMap<EditProposal, { left: vscode.Uri; right: vscode.Uri }>();
+  let counter = 0;
+
+  function viewOf(proposal: EditProposal): { left: vscode.Uri; right: vscode.Uri } {
+    let view = views.get(proposal);
+    if (view === undefined) {
+      counter += 1;
+      const right = vscode.Uri.from({
+        scheme: PROPOSAL_SCHEME,
+        path: `/${proposal.display}`,
+        query: `proposal-${counter}`,
+      });
+      const left =
+        proposal.kind === "edit"
+          ? vscode.Uri.file(proposal.absolute)
+          : vscode.Uri.from({
+              scheme: PROPOSAL_SCHEME,
+              path: `/${proposal.display}`,
+              query: `empty-${counter}`,
+            });
+      contents.set(right.toString(), proposal.after);
+      contents.set(left.toString(), "");
+      view = { left, right };
+      views.set(proposal, view);
+    }
+    return view;
+  }
+
+  const workspace: SessionWorkspace = {
+    availability: () =>
+      !vscode.workspace.isTrusted
+        ? "untrusted"
+        : (vscode.workspace.workspaceFolders ?? []).some((folder) => folder.uri.scheme === "file")
+          ? "on"
+          : "no_folder",
+    roots: () =>
+      (vscode.workspace.workspaceFolders ?? [])
+        .filter((folder) => folder.uri.scheme === "file")
+        .map((folder) => folder.uri.fsPath),
+    fs: nodeWorkspaceFs,
+    showProposal: async (proposal) => {
+      const { left, right } = viewOf(proposal);
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        left,
+        right,
+        describeProposalTitle(proposal.display),
+        { preview: true, preserveFocus: true },
+      );
+    },
+    closeProposal: async (proposal) => {
+      const view = views.get(proposal);
+      if (view === undefined) {
+        return;
+      }
+      const tabs = vscode.window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .filter(
+          (tab) =>
+            tab.input instanceof vscode.TabInputTextDiff &&
+            tab.input.modified.toString() === view.right.toString(),
+        );
+      contents.delete(view.right.toString());
+      contents.delete(view.left.toString());
+      if (tabs.length > 0) {
+        await vscode.window.tabGroups.close(tabs, true);
+      }
+    },
+    applyProposal: async (proposal) => {
+      const uri = vscode.Uri.file(proposal.absolute);
+      const edit = new vscode.WorkspaceEdit();
+      if (proposal.kind === "create") {
+        const exists = await vscode.workspace.fs.stat(uri).then(
+          () => true,
+          () => false,
+        );
+        if (exists) {
+          return "file_changed";
+        }
+        edit.createFile(uri, { contents: new TextEncoder().encode(proposal.after) });
+        return (await vscode.workspace.applyEdit(edit)) ? "applied" : "not_applied";
+      }
+      const document = await vscode.workspace.openTextDocument(uri);
+      if (document.isDirty) {
+        return "unsaved_changes";
+      }
+      if (document.getText() !== proposal.before) {
+        return "file_changed";
+      }
+      edit.replace(
+        uri,
+        new vscode.Range(document.positionAt(proposal.start), document.positionAt(proposal.end)),
+        proposal.newText,
+      );
+      if (!(await vscode.workspace.applyEdit(edit))) {
+        return "not_applied";
+      }
+      await document.save();
+      // The changed file is shown, so that the editor's Undo is one key away.
+      await vscode.window.showTextDocument(document, { preview: true, preserveFocus: true });
+      return "applied";
+    },
+  };
+
+  const registration = vscode.workspace.registerTextDocumentContentProvider(PROPOSAL_SCHEME, {
+    provideTextDocumentContent: (uri) => contents.get(uri.toString()) ?? "",
+  });
+  return { workspace, registration };
 }
 
 function toEditorPart(part: ChatPart): vscode.LanguageModelResponsePart {
@@ -109,9 +234,11 @@ export function activate(context: vscode.ExtensionContext): void {
     fireChange: () => modelChanges.fire(),
   };
   const provider = new ChatProvider(host);
+  const tools = editorWorkspace();
   const chatView = registerChatView(context, {
     resolve: () => host.resolve(),
     log: (record) => log.record(record),
+    workspace: tools.workspace,
   });
 
   function showState(state: ConnectionState): void {
@@ -121,13 +248,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   async function refreshStatus(): Promise<void> {
     provider.invalidate();
-    void chatView.session.refreshModels();
     const ticket = ++refreshCounter;
     const resolved = await resolve();
     if (ticket !== refreshCounter) {
       return;
     }
     if (!resolved.ok) {
+      void chatView.session.refreshModels();
       if (resolved.reason === "invalid_server_url") {
         showState("error");
       } else {
@@ -136,8 +263,11 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
     let state: ConnectionState = "connected";
+    // One model list for the status bar and the panel (Lot P0b).
+    const models = getModels(resolved.options);
+    void chatView.session.refreshModels(models);
     try {
-      await getModels(resolved.options);
+      await models;
     } catch (error) {
       state = stateFromCode(codeOf(error));
     }
@@ -293,6 +423,9 @@ export function activate(context: vscode.ExtensionContext): void {
     modelChanges,
     vscode.lm.registerLanguageModelChatProvider(VENDOR, languageModels),
     chatView.registration,
+    tools.registration,
+    vscode.workspace.onDidGrantWorkspaceTrust(() => chatView.session.toolsChanged()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => chatView.session.toolsChanged()),
     vscode.commands.registerCommand(COMMANDS.manage, manage),
     vscode.commands.registerCommand(COMMANDS.setKey, setKey),
     vscode.commands.registerCommand(COMMANDS.clearKey, clearKey),

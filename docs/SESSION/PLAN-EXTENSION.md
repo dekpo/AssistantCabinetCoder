@@ -46,6 +46,21 @@ The first plan had four lots (X1 at 14 to 18 hours and X2 at 7 to 10 hours were 
 | **X3** | `feat/x3-agents` | **Agents**: five shipped agents, sync of the server's catalogue (preview, marker, never a silent overwrite) | 5 to 7 h | about 25 min | Lot 16 (or the stub) |
 | **X4** | `feat/x4-release` | **Robustness, security, `.vsix` release**, final README, full human test | 5 to 7 h | about 60 min | all |
 
+### State and rolling plan (revised 23 November 2026, after the verdict of Lot P0b, D-031)
+
+The extension left the editor's chat for a panel of its own (D-026). Lots X2a, X2b, X3 and X4 below are replaced by the panel's lots:
+
+| Lot | Branch | Content | State | Server package needed |
+| --- | --- | --- | --- | --- |
+| P0a | `feat/p0a-panel` | The panel, a plain chat, a real stop, saved conversations (0.3.0) | done, tested | none |
+| P0b | `feat/p0b-panel-agent` | The agent loop, four workspace tools, edits after Accept (0.4.0) | done, tested; verdict D-031 | none |
+| **P1** | `feat/p1-panel-finish` | The editor-chat provider removed; tables, a copy icon on code blocks, the List target, the answer's language; the server's stop flag and model maximum (0.5.0). Prompt: `SESSION-P1-panel-finish.md` | next | none; tests the stop flag on 0.1.14 if installed |
+| P2 | `feat/p2-documents-images` | Images in a message (vision models) and documents through `POST /ide/v1/files/analyze`, with P0b's path rules (the goals of X2a and X2b, on the panel) | to plan at the end of P1 | none new (server Lot 17b, settings) |
+| P3 | `feat/p3-agents` | The server's agent catalogue (`GET /ide/v1/agents`) chosen in the panel (the goal of X3) | to plan | none new (server Lot 16, a catalogue file) |
+| P4 | `feat/p4-release` | Robustness, the tested range of code models (D-031 (5)), release, the full human test (the goal of X4) | to plan | Mac 0.1.14 and MSI 0.1.36 (server Lot 46) |
+
+The server's needs are written in `docs/handoffs/SERVER.md` before the server plans a package (D-032): one package per platform (server Lot 46) is meant to carry everything up to P4.
+
 ### State and rolling plan (revised 19 November 2026)
 
 | Lot | Branch | State on 19 November 2026 |

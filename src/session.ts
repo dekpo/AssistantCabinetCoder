@@ -5,35 +5,91 @@
  * redrawn from here when it is shown again. Conversations are saved through the store (decision
  * D-027); nothing of them reaches the log, which gets codes, durations and counts only.
  */
+import { runAgent, type AgentEnd } from "./agent";
 import { streamChat, type ChatResult } from "./chat";
-import { getModels, type ClientOptions } from "./client";
+import { getModels, type ClientOptions, type ModelsResult } from "./client";
 import { codeOf } from "./codes";
 import {
+  agentRequestBody,
   beginTurn,
   closeInterrupted,
+  closeOpenCalls,
   finishAnswer,
   newConversation,
   noteOf,
   pendingAnswer,
+  recordCalls,
   requestBody,
+  type AssistantTurn,
   type Conversation,
+  type RawToolCall,
+  type ToolStep,
   type Turn,
 } from "./conversation";
 import type { NoServerReason } from "./discovery";
 import { sortSummaries, summaryOf, type ConversationSummary } from "./history";
-import type { CallRecord } from "./log";
-import { PANEL, describeCode, describeNoServer, describeOverflow } from "./messages";
+import { toolNamesForLog, type CallRecord } from "./log";
+import {
+  AGENT_PANEL,
+  PANEL,
+  TOOL_NOTES,
+  describeCode,
+  describeNoServer,
+  describeOverflow,
+} from "./messages";
 import {
   MAX_MESSAGE_CHARS,
   parseWebviewMessage,
   type HostMessage,
   type Phase,
+  type ToolIcon,
+  type ViewCall,
   type ViewState,
   type ViewTurn,
   type WebviewMessage,
 } from "./protocol";
 import { renderBlocks } from "./render";
 import { StoreError, type ConversationStore } from "./store";
+import {
+  INTERRUPTED_RESULT,
+  STOPPED_RESULT,
+  SYSTEM_PROMPT,
+  TOOL_DEFINITIONS,
+  runToolCall,
+  targetOf,
+  type EditDecision,
+  type EditProposal,
+  type ToolOutcome,
+} from "./tools";
+import type { WorkspaceFs } from "./workspace";
+
+/** Whether the panel's tools may run: on, or why they are off. */
+export type ToolsAvailability = "on" | "untrusted" | "no_folder";
+
+/**
+ * The workspace side of the panel's tools (Lot P0b), given by the adapter. Nothing here writes
+ * except `applyProposal`, which the session calls only after the user's click on Accept.
+ */
+export interface SessionWorkspace {
+  availability(): ToolsAvailability;
+  /** The open workspace folders, absolute. */
+  roots(): string[];
+  fs: WorkspaceFs;
+  /** Opens the editor's diff view of a proposed change (it may be called again). */
+  showProposal(proposal: EditProposal): Promise<void>;
+  /** Closes that diff view once the user decided. */
+  closeProposal(proposal: EditProposal): Promise<void>;
+  /** Applies the change through the editor (so Undo reverts it). */
+  applyProposal(proposal: EditProposal): Promise<EditDecision>;
+}
+
+/** A change waiting for the user's decision. */
+interface Awaiting {
+  callId: string;
+  proposal: EditProposal;
+  settle(decision: EditDecision): void;
+  applying: boolean;
+}
 
 export type SessionResolution =
   { ok: true; options: ClientOptions } | { ok: false; reason: NoServerReason };
@@ -52,6 +108,8 @@ export interface SessionHost {
   rememberModel(model: string): void;
   newId(now: number): string;
   clock(): number;
+  /** The workspace for the panel's tools; without it the panel is a plain chat (Lot P0a). */
+  workspace?: SessionWorkspace;
 }
 
 export interface SessionOptions {
@@ -87,6 +145,10 @@ export class ChatSession {
   private answerTimer: ReturnType<typeof setTimeout> | undefined;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private saving: Promise<void> = Promise.resolve();
+  /** The models that report tool calling (only they are offered the tools). */
+  private toolModels = new Set<string>();
+  /** The change waiting for the user's decision, if any. */
+  private awaiting: Awaiting | undefined;
 
   constructor(
     private readonly host: SessionHost,
@@ -124,6 +186,11 @@ export class ChatSession {
     return this.phase !== "idle";
   }
 
+  /** The workspace's trust or folders changed: the line about the tools is drawn again. */
+  toolsChanged(): void {
+    this.postState();
+  }
+
   /** Stops the open request, if any. */
   stop(): void {
     this.controller?.abort();
@@ -134,9 +201,13 @@ export class ChatSession {
     await this.saving;
   }
 
-  /** The model list again (start, a changed connection, a refused alias). */
-  refreshModels(): Promise<void> {
-    const run = this.fetchModels();
+  /**
+   * The model list again (start, a changed connection, a refused alias). `prefetched` is a list
+   * request already sent by the caller (the status bar's check at start), shared instead of a
+   * second one.
+   */
+  refreshModels(prefetched?: Promise<ModelsResult>): Promise<void> {
+    const run = this.fetchModels(prefetched);
     this.refreshing = run;
     const clear = (): void => {
       if (this.refreshing === run) {
@@ -147,8 +218,13 @@ export class ChatSession {
     return run;
   }
 
-  private async fetchModels(): Promise<void> {
+  private async fetchModels(prefetched?: Promise<ModelsResult>): Promise<void> {
     const ticket = ++this.modelTicket;
+    // A shared request is joined first, so its failure is never left unobserved.
+    const shared = prefetched?.then(
+      (result) => ({ ok: true as const, result }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
     const resolved = await this.host.resolve();
     if (ticket !== this.modelTicket) {
       return;
@@ -159,11 +235,23 @@ export class ChatSession {
       return;
     }
     try {
-      const result = await getModels(resolved.options);
+      let result: ModelsResult;
+      if (shared === undefined) {
+        result = await getModels(resolved.options);
+      } else {
+        const outcome = await shared;
+        if (!outcome.ok) {
+          throw outcome.error;
+        }
+        result = outcome.result;
+      }
       if (ticket !== this.modelTicket) {
         return;
       }
       this.models = result.models.map((model) => model.id);
+      this.toolModels = new Set(
+        result.models.filter((model) => model.tools).map((model) => model.id),
+      );
       this.connectionNotice = undefined;
       this.chooseModel(this.model);
     } catch (error) {
@@ -215,7 +303,78 @@ export class ChatSession {
         }
         this.postState();
         return;
+      case "acceptEdit":
+        await this.decide(true);
+        return;
+      case "rejectEdit":
+        await this.decide(false);
+        return;
+      case "showDiff":
+        if (this.awaiting !== undefined) {
+          await this.host.workspace?.showProposal(this.awaiting.proposal).catch(() => undefined);
+        }
+        return;
     }
+  }
+
+  /** The user's click on Accept or Reject of the change waiting, if one is. */
+  private async decide(accept: boolean): Promise<void> {
+    const awaiting = this.awaiting;
+    const workspace = this.host.workspace;
+    if (awaiting === undefined || awaiting.applying || workspace === undefined) {
+      return;
+    }
+    if (!accept) {
+      awaiting.settle("rejected");
+      return;
+    }
+    awaiting.applying = true;
+    let decision: EditDecision;
+    try {
+      decision = await workspace.applyProposal(awaiting.proposal);
+    } catch {
+      decision = "not_applied";
+    }
+    awaiting.settle(decision);
+  }
+
+  /** Shows a proposed change and waits for Accept, Reject or Stop. Nothing is written before. */
+  private waitForDecision(
+    callId: string,
+    proposal: EditProposal,
+    signal: AbortSignal,
+  ): Promise<EditDecision> {
+    const workspace = this.host.workspace;
+    return new Promise<EditDecision>((resolve) => {
+      let settled = false;
+      const settle = (decision: EditDecision): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        signal.removeEventListener("abort", onAbort);
+        if (this.awaiting?.callId === callId) {
+          this.awaiting = undefined;
+        }
+        void workspace?.closeProposal(proposal).catch(() => undefined);
+        resolve(decision);
+      };
+      const onAbort = (): void => {
+        // A click on Accept already applying finishes first: what it did is what the model reads.
+        if (this.awaiting?.applying !== true) {
+          settle("stopped");
+        }
+      };
+      this.awaiting = { callId, proposal, settle, applying: false };
+      if (signal.aborted) {
+        settle("stopped");
+        return;
+      }
+      signal.addEventListener("abort", onAbort);
+      this.phase = "approval";
+      this.postState();
+      void workspace?.showProposal(proposal).catch(() => undefined);
+    });
   }
 
   private async load(): Promise<void> {
@@ -280,6 +439,8 @@ export class ChatSession {
       }
       return;
     }
+    // A call that a closed window left without a result gets one, before its answer is closed.
+    closeOpenCalls(loaded, INTERRUPTED_RESULT, TOOL_NOTES.stopped);
     if (closeInterrupted(loaded)) {
       this.save(loaded);
     }
@@ -359,9 +520,99 @@ export class ChatSession {
     this.save(conversation);
     this.postState();
 
-    const result: ChatResult = await this.send(
-      resolved.options,
-      requestBody(conversation, model),
+    let result: ChatResult;
+    let outcome: ChatResult["outcome"];
+    let phase: ChatResult["phase"];
+    let stepLimit = false;
+    if (!this.toolsFor(model)) {
+      result = await this.sendStep(resolved.options, conversation, answer, model, controller);
+      outcome = result.outcome;
+      phase = result.phase;
+    } else {
+      const end: AgentEnd = await this.runLoop(
+        resolved.options,
+        conversation,
+        answer,
+        model,
+        controller,
+      );
+      result = end.last;
+      outcome = end.outcome;
+      // A stop between two requests (a tool running, a change waiting) came after the first word.
+      phase = result.outcome === "stopped" ? result.phase : "answering";
+      stepLimit = end.stepLimit;
+      closeOpenCalls(conversation, STOPPED_RESULT, TOOL_NOTES.stopped);
+    }
+
+    this.clearTimers();
+    finishAnswer(
+      conversation,
+      {
+        outcome,
+        phase,
+        code: result.code,
+        overflow: result.overflow,
+        finish: result.finish,
+        promptTokens: result.promptTokens,
+        completionTokens: result.completionTokens,
+        durationMs: result.durationMs,
+        firstMs: result.firstMs,
+        stepLimit,
+      },
+      this.host.clock(),
+    );
+    this.phase = "idle";
+    this.since = undefined;
+    this.controller = undefined;
+    this.upsertSummary(conversation);
+    this.save(conversation);
+    this.postState();
+    if (result.code === "model_alias_not_allowed") {
+      await this.refreshModels();
+    }
+  }
+
+  /** Whether this message goes with the tools: a workspace that allows them, a model that calls them. */
+  private toolsFor(model: string): boolean {
+    return this.host.workspace?.availability() === "on" && this.toolModels.has(model);
+  }
+
+  /** Why the tools are off, for the line under the conversation; `undefined` when they are on. */
+  private toolsNote(): string | undefined {
+    const workspace = this.host.workspace;
+    if (workspace === undefined) {
+      return undefined;
+    }
+    const availability = workspace.availability();
+    if (availability === "untrusted") {
+      return AGENT_PANEL.toolsUntrusted;
+    }
+    if (availability === "no_folder") {
+      return AGENT_PANEL.toolsNoFolder;
+    }
+    return this.model !== undefined &&
+      this.models.includes(this.model) &&
+      !this.toolModels.has(this.model)
+      ? AGENT_PANEL.toolsModel
+      : undefined;
+  }
+
+  /** One request to the model, sent once, streaming its text into the open answer. */
+  private sendStep(
+    options: ClientOptions,
+    conversation: Conversation,
+    answer: AssistantTurn | undefined,
+    model: string,
+    controller: AbortController,
+    step?: number,
+  ): Promise<ChatResult> {
+    const body =
+      step === undefined
+        ? requestBody(conversation, model)
+        : agentRequestBody(conversation, model, SYSTEM_PROMPT, TOOL_DEFINITIONS);
+    return this.send(
+      options,
+      body,
       {
         onFirstEvent: () => {
           this.phase = "answering";
@@ -376,35 +627,72 @@ export class ChatSession {
         },
       },
       controller.signal,
-      (record) => this.host.log(record),
+      (record) => this.host.log(step === undefined ? record : { ...record, step }),
       () => this.host.clock(),
     );
+  }
 
-    this.clearTimers();
-    finishAnswer(
-      conversation,
+  /** The agent loop of one message: steps, tool calls, changes waiting for the user. */
+  private runLoop(
+    options: ClientOptions,
+    conversation: Conversation,
+    answer: AssistantTurn | undefined,
+    model: string,
+    controller: AbortController,
+  ): Promise<AgentEnd> {
+    const workspace = this.host.workspace as SessionWorkspace;
+    const signal = controller.signal;
+    // The calls of the current step; a model may repeat an id, so a call is found in order.
+    let current: ToolStep[] = [];
+    return runAgent(
       {
-        outcome: result.outcome,
-        phase: result.phase,
-        code: result.code,
-        overflow: result.overflow,
-        finish: result.finish,
-        promptTokens: result.promptTokens,
-        completionTokens: result.completionTokens,
-        durationMs: result.durationMs,
-        firstMs: result.firstMs,
+        send: (step) => {
+          if (step > 1) {
+            this.phase = "reading";
+            this.since = this.host.clock();
+            this.postState();
+          }
+          return this.sendStep(options, conversation, answer, model, controller, step);
+        },
+        recordCalls: (calls) => {
+          this.clearTimers();
+          current = recordCalls(conversation, calls);
+          this.save(conversation);
+        },
+        runCall: async (call: RawToolCall): Promise<ToolOutcome> => {
+          this.phase = "tool";
+          this.postState();
+          const started = this.host.clock();
+          const outcome = await runToolCall(call.name, call.arguments, {
+            fs: workspace.fs,
+            roots: workspace.roots(),
+            proposeEdit: (proposal) => this.waitForDecision(call.id, proposal, signal),
+          });
+          this.host.log({
+            call: "tool",
+            durationMs: this.host.clock() - started,
+            tool: toolNamesForLog([call.name])[0],
+            outcome: outcome.status,
+            reason: outcome.reason,
+          });
+          return outcome;
+        },
+        recordOutcome: (call, outcome) => {
+          const step = current.find(
+            (candidate) => candidate.id === call.id && candidate.status === undefined,
+          );
+          if (step !== undefined) {
+            step.result = outcome.result;
+            step.status = outcome.status;
+            step.note = outcome.note;
+          }
+          this.phase = "tool";
+          this.save(conversation);
+          this.postState();
+        },
       },
-      this.host.clock(),
+      signal,
     );
-    this.phase = "idle";
-    this.since = undefined;
-    this.controller = undefined;
-    this.upsertSummary(conversation);
-    this.save(conversation);
-    this.postState();
-    if (result.code === "model_alias_not_allowed") {
-      await this.refreshModels();
-    }
   }
 
   private upsertSummary(conversation: Conversation): void {
@@ -458,14 +746,20 @@ export class ChatSession {
     const index = conversation.turns.length - 1;
     const turn = conversation.turns[index];
     if (turn !== undefined) {
-      this.host.post({ type: "answer", index, turn: viewTurn(turn), phase: this.phase });
+      this.host.post({
+        type: "answer",
+        index,
+        turn: viewTurn(turn, this.awaiting?.callId),
+        phase: this.phase,
+      });
     }
   }
 
   private postState(draft?: string): void {
+    const awaitingCallId = this.awaiting?.callId;
     const state: ViewState = {
       conversationId: this.current.turns.length > 0 ? this.current.id : undefined,
-      turns: this.current.turns.map(viewTurn),
+      turns: this.current.turns.map((turn) => viewTurn(turn, awaitingCallId)),
       phase: this.phase,
       since: this.since,
       models: [...this.models],
@@ -474,6 +768,10 @@ export class ChatSession {
       notice: this.notice ?? this.connectionNotice,
       draft,
     };
+    const toolsNote = this.toolsNote();
+    if (toolsNote !== undefined) {
+      state.toolsNote = toolsNote;
+    }
     this.host.post({ type: "state", state });
   }
 }
@@ -481,7 +779,7 @@ export class ChatSession {
 /** The panel's labels for the webview (the sentences that take a number are sent apart). */
 export function labels(): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(PANEL)) {
+  for (const [key, value] of [...Object.entries(PANEL), ...Object.entries(AGENT_PANEL)]) {
     if (typeof value === "string") {
       out[key] = value;
     }
@@ -489,12 +787,15 @@ export function labels(): Record<string, string> {
   return out;
 }
 
-/** One turn as the webview draws it. */
-export function viewTurn(turn: Turn): ViewTurn {
+/**
+ * One turn as the webview draws it. `awaitingCallId` is the call whose change waits for the
+ * user's decision, if any.
+ */
+export function viewTurn(turn: Turn, awaitingCallId?: string): ViewTurn {
   if (turn.role === "user") {
     return { role: "user", text: turn.text };
   }
-  return {
+  const view: ViewTurn = {
     role: "assistant",
     model: turn.model,
     blocks: renderBlocks(turn.text),
@@ -506,5 +807,40 @@ export function viewTurn(turn: Turn): ViewTurn {
         : turn.overflow !== undefined
           ? describeOverflow(turn.overflow)
           : describeCode(turn.code ?? "unexpected_response"),
+  };
+  if (turn.steps !== undefined && turn.steps.length > 0) {
+    view.steps = turn.steps.map((round) => ({
+      blocks: renderBlocks(round.text),
+      calls: round.calls.map((call) =>
+        viewCall(call, turn.state === "pending" && call.id === awaitingCallId),
+      ),
+    }));
+  }
+  return view;
+}
+
+const TOOL_VIEWS: Record<string, { icon: ToolIcon; label: string }> = {
+  read_file: { icon: "read", label: AGENT_PANEL.toolRead },
+  list_files: { icon: "list", label: AGENT_PANEL.toolList },
+  search_text: { icon: "search", label: AGENT_PANEL.toolSearch },
+  propose_edit: { icon: "edit", label: AGENT_PANEL.toolEdit },
+};
+
+/** The longest target shown on a tool line, in characters. */
+const MAX_TARGET_CHARS = 200;
+
+/** One tool call as a line of the panel: never the arguments' content beyond a path or a query. */
+export function viewCall(call: ToolStep, awaiting = false): ViewCall {
+  const known = Object.prototype.hasOwnProperty.call(TOOL_VIEWS, call.name)
+    ? TOOL_VIEWS[call.name]
+    : undefined;
+  const target = targetOf(call.name, call.arguments).replace(/\s+/g, " ");
+  return {
+    icon: known?.icon ?? "tool",
+    label: known?.label ?? AGENT_PANEL.toolOther,
+    target:
+      target.length > MAX_TARGET_CHARS ? `${target.slice(0, MAX_TARGET_CHARS - 3)}...` : target,
+    status: call.status ?? (awaiting && call.result === undefined ? "awaiting" : "running"),
+    note: call.note,
   };
 }

@@ -3,7 +3,7 @@
  * elements with children, text, classes, a few properties and listeners. It has no HTML parser at
  * all, so a test can prove that the script never asks for one.
  */
-import { ICONS } from "../../src/page";
+import { ICONS, TOOL_ICONS } from "../../src/page";
 
 export class FakeText {
   readonly nodeType = 3;
@@ -164,11 +164,21 @@ export function fakeWindow(): FakeWindow {
     svg.setAttribute("data-icon", name);
     icons.append(svg);
   }
+  // The tools' icons of Lot P0b, in their own hidden element.
+  const toolIcons = new FakeElement("div");
+  toolIcons.id = "tool-icons";
+  toolIcons.hidden = true;
+  for (const name of Object.keys(TOOL_ICONS)) {
+    const svg = new FakeElement("svg");
+    svg.setAttribute("data-icon", name);
+    toolIcons.append(svg);
+  }
   const posted: unknown[] = [];
   const created: string[] = [];
   const windowListeners: ((event: unknown) => void)[] = [];
   const document = {
-    getElementById: (id: string) => (id === "app" ? app : id === "icons" ? icons : null),
+    getElementById: (id: string) =>
+      id === "app" ? app : id === "icons" ? icons : id === "tool-icons" ? toolIcons : null,
     createElement: (tag: string) => {
       created.push(tag);
       return new FakeElement(tag);
