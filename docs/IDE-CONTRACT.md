@@ -21,7 +21,12 @@ Every **chat alias** the gateway serves (`MODEL_ALIASES` minus the embedding ali
 {
   "object": "list",
   "ide_api": 1,
-  "features": { "agents": false, "document_analysis": false, "image_description": false },
+  "features": {
+    "agents": false,
+    "document_analysis": false,
+    "image_description": false,
+    "stop_at_every_stage": true
+  },
   "data": [
     {
       "id": "cabinet-code",
@@ -30,6 +35,7 @@ Every **chat alias** the gateway serves (`MODEL_ALIASES` minus the embedding ali
       "owned_by": "assistant-cabinet",
       "context_window": 131072,
       "max_output_tokens": 16384,
+      "max_context_window": 262144,
       "capabilities": { "tools": true, "vision": false }
     }
   ]
@@ -42,13 +48,17 @@ Every **chat alias** the gateway serves (`MODEL_ALIASES` minus the embedding ali
 | `features.agents` | `true` from Lot 16 when `GET /ide/v1/agents` is available. |
 | `features.document_analysis` | `true` from Lot 17 when `IDE_DOCUMENT_ANALYSIS=on` and `POST /ide/v1/files/analyze` is mounted. |
 | `features.image_description` | `true` from Lot 17 when `IDE_VISION_ALIAS` names a vision-capable alias (so the analysis route can describe images and scanned pages) **and `features.document_analysis` is also `true`**: the flag says what the route can do, so it is `false` while the route is not mounted. Asked again at each call of this route: the runtime must report `vision` for the weight now. |
+| `features.stop_at_every_stage` | Always `true` from Lot 45 (D-101): the server stops a request whose client closes the connection, at every stage (waiting for a slot, prompt evaluation, answer, streamed or not; section 3, **Stop**, D-100). A server without the flag may keep a request it no longer needs until its first token. |
 | `data[].id` | The alias, sorted ascending. |
 | `data[].context_window` | Tokens one request may hold (prompt + answer): `min(configured window, the model's own maximum)` (`effective_context_window`). The gateway sends exactly this value to the runtime as `num_ctx` on every request and **never varies it for an alias**, because a runtime reloads a model whose context size changes between requests. |
 | `data[].max_output_tokens` | `min(IDE_MAX_OUTPUT_TOKENS, context_window // 2)`. |
+| `data[].max_context_window` | From Lot 45 (D-101): the model's own maximum, in tokens, as the runtime reports it from the weight's metadata (cached per model), or `null` when the runtime cannot say (down, or no such metadata). Information only: the gateway never sends more than `context_window`; a larger window is the administrator's choice (`cabinet models context`). Asked in the same parallel round as the capabilities. |
 | `data[].capabilities.tools` | `true` when the runtime reports the `tools` capability for the weight behind the alias (model metadata, cached per model); `false` when it does not, or cannot say. Never an error. |
 | `data[].capabilities.vision` | `true` when the runtime reports the `vision` capability for the weight; `false` otherwise. |
 
-Errors: the usual envelope (`unauthorized` 401, `rate_limited` 429). If the runtime is down the list is still returned (aliases come from configuration) with `tools: false`, `vision: false` and the configured window.
+Errors: the usual envelope (`unauthorized` 401, `rate_limited` 429). If the runtime is down the list is still returned (aliases come from configuration) with `tools: false`, `vision: false`, the configured window and `max_context_window: null`.
+
+A client reads only the fields it knows: Lot 45 added `max_context_window` and `features.stop_at_every_stage`, and an older extension ignores them.
 
 ## 3. `POST /ide/v1/chat/completions` (Lot 15)
 
@@ -73,7 +83,7 @@ OpenAI Chat Completions shape, with tool calling and images. **No system prompt 
 | `n` | `1` or absent | Other values: `invalid_request` 422 with field `n`. |
 | anything else | ignored | `parallel_tool_calls`, `response_format`, penalties, `user`, ... |
 
-Limits (on top of the existing ones, only for `/ide/`): body at most `IDE_MAX_REQUEST_BODY_BYTES`; the characters of all text contents plus the JSON of `tools` at most `IDE_MAX_CONTEXT_CHARS` (`context_too_large` 413 with `chars` and `limit`); a request whose text characters divided by 2 already exceed the alias's `context_window` is refused `context_too_large` 413 with `estimated_tokens` and `context_window` (a certain overflow only: the runtime would silently cut the oldest messages otherwise). Passing the guard does not guarantee fit: the client budgets with the `context_window` it was given and reads `usage.prompt_tokens` back.
+Limits (on top of the existing ones, only for `/ide/`): body at most `IDE_MAX_REQUEST_BODY_BYTES`; the characters of all text contents plus the JSON of `tools` at most `IDE_MAX_CONTEXT_CHARS` (`context_too_large` 413 with `chars` and `limit`); a request whose characters (the same count: every text content **and the JSON of `tools`**) divided by `IDE_OVERFLOW_CHARS_PER_TOKEN` (default `2`, from Lot 45, D-101) already exceed the alias's `context_window` is refused `context_too_large` 413 with `estimated_tokens` (those characters divided by the ratio, rounded up) and `context_window` (a certain overflow only: the runtime would silently cut the oldest messages otherwise). The ratio 2 is cautious for every language; English, JSON and code measured about 3.5 characters per token, so an administrator whose editors send those may raise it. Passing the guard does not guarantee fit: the client budgets with the `context_window` it was given and reads `usage.prompt_tokens` back.
 
 Concurrency: a gate separate from the desktop's (`IDE_MAX_CONCURRENT_GENERATIONS`, default 1), with the existing queue size and wait (`MAX_QUEUED_GENERATIONS`, `QUEUE_WAIT_SECONDS`); beyond that `server_busy` 503. IDE traffic can never take a desktop slot, and the reverse. The time the runtime may take (prompt evaluation of a very long context included) is `IDE_REQUEST_TIMEOUT_SECONDS` (default 900), not the desktop's `LLM_REQUEST_TIMEOUT_SECONDS`.
 
@@ -212,7 +222,8 @@ All optional, documented in `docs/CONFIGURATION.md` and `docs/USER-GUIDE.md`, ed
 | `IDE_ENABLED` | `off` | 15 | `on` mounts the `/ide/v1` routes. |
 | `IDE_ONLY_ALIASES` | empty | 15 | Chat aliases **hidden from the desktop** (not in `GET /health` `aliases` / `context_windows` and not in `GET /v1/models`), still served on `/ide`. Empty hides nothing. Must be chat aliases of `MODEL_ALIASES` and must not contain `DEFAULT_MODEL_ALIAS` (`config check`). |
 | `IDE_MAX_OUTPUT_TOKENS` | `16384` | 15 | Ceiling of one IDE answer. |
-| `IDE_MAX_CONTEXT_CHARS` | `1500000` | 15 | Ceiling of the text characters of one IDE request (messages + tools). |
+| `IDE_MAX_CONTEXT_CHARS` | `1500000` | 15 | Ceiling of the text characters of one IDE request (messages + tools). Keep it above `IDE_OVERFLOW_CHARS_PER_TOKEN` × the largest editor window, or it refuses first. |
+| `IDE_OVERFLOW_CHARS_PER_TOKEN` | `2` | 45 | Characters counted as one token by the certain-overflow guard (section 3): a decimal from `1` to `8` (`config check`). `config show` prints the default as `2.0`. |
 | `IDE_MAX_REQUEST_BODY_BYTES` | `33554432` | 15 | Body ceiling for paths under `/ide/` (elsewhere `MAX_REQUEST_BODY_BYTES` is unchanged). |
 | `IDE_MAX_IMAGES_PER_REQUEST` | `8` | 15 | |
 | `IDE_MAX_IMAGE_BYTES` | `8388608` | 15 | Per image, decoded. |
