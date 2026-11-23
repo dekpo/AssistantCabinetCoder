@@ -26,7 +26,20 @@ async function main(): Promise<void> {
   if (!STUB_MODES.includes(mode)) {
     throw new Error(`Unknown mode "${mode}". Modes: ${STUB_MODES.join(", ")}.`);
   }
-  const options: StubOptions = { mode };
+  // One console line per chat request and per answer's end: the request's number, the stub's own
+  // scenario and code names, the model and counts. Never a message, a tool name or an argument.
+  const options: StubOptions = {
+    mode,
+    onChat: (event) => {
+      const time = new Date().toISOString().slice(11, 19);
+      const what = `scenario=${event.scenario}${event.code !== undefined ? ` code=${event.code}` : ""}`;
+      const end =
+        event.phase === "end" ? ` ms=${event.ms ?? 0} complete=${String(event.complete)}` : "";
+      console.log(
+        `${time} chat#${event.id} ${event.phase} ${what} model=${event.model ?? "-"} tools=${event.tools}${end}`,
+      );
+    },
+  };
   if (values.key !== undefined) {
     options.requireKey = values.key;
   }

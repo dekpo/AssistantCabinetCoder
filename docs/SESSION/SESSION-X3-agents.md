@@ -1,5 +1,7 @@
 # Lot X3: code agents (bundled agents and agents served by the server)
 
+> **PAUSED (23 November 2026, decision D-026).** Do not start this lot. The extension is moving to a chat panel of its own (Lots P0a and P0b); the `.agent.md` files of this plan belong to the editor's chat. This file is kept as a record and will be rewritten for the panel after the owner's verdict on P0b.
+
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, **`docs/SPIKE-FINDINGS.md`** (items (f) and (i): the real tool names, how a model is named in the picker, whether a sideloaded `.vsix` can contribute `chatAgents`), `docs/IDE-CONTRACT.md` sections 2 and 4, the VS Code documentation of custom agents (`docs/agent-customization/custom-agents.md` and the custom agent file reference in the `vscode-docs` repository).
 
 Branch: `feat/x3-agents`, from `feat/x2b-read-document` (or from the newest accepted extension branch if the owner skipped X2). Estimate: 5 to 7 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lot 16 (**built and installed**) and a catalogue file on the server.

@@ -5,6 +5,7 @@
  */
 import type { ConnectionReport, ConnectionState } from "./client";
 import type { MachineCode } from "./codes";
+import type { OverflowNumbers } from "./codes";
 import type { ConvertReason } from "./convert";
 import type { NoServerReason } from "./discovery";
 
@@ -249,4 +250,16 @@ export function formatReport(
       ? "Connected: 1 model available"
       : `Connected: ${models.length} models available`;
   return { ok: true, headline, detail: lines.join("\n") };
+}
+
+/**
+ * The sentence of a `context_too_large` refusal that carries the server's numbers. The token
+ * figure is the server's own estimate (about 2 characters per token), so it is called an estimate.
+ * Without numbers the sentence of `CODE_MESSAGES.context_too_large` is used.
+ */
+export function describeOverflow(numbers: OverflowNumbers): string {
+  if (numbers.kind === "tokens") {
+    return `The conversation is too long for this model: the server estimates about ${numbers.estimatedTokens} tokens for a window of ${numbers.contextWindow} tokens. Start a new chat or attach less. An administrator can raise the model's window, up to the model's own maximum, with: cabinet models context <model> <tokens> (with sudo on macOS).`;
+  }
+  return `The conversation is too long for this server: ${numbers.chars} characters for a limit of ${numbers.limit}. Start a new chat or attach less. An administrator can raise the limit with: cabinet config set IDE_MAX_CONTEXT_CHARS=<characters>, then cabinet restart (with sudo on macOS).`;
 }

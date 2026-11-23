@@ -1,0 +1,66 @@
+# Lot P0a: the extension's own chat panel, a plain chat with a real stop
+
+> **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md` (**D-025 and D-026 above all**), `docs/LESSONS.md` (all of it), `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, `docs/SPIKE-FINDINGS.md`, `docs/IDE-CONTRACT.md` sections 2 and 3, the pinned `@types/vscode` (`WebviewViewProvider`, `WebviewView`, `Webview.cspSource`, `asWebviewUri`, `registerWebviewViewProvider`), the VS Code guides `api/extension-guides/webview` and `api/ux-guidelines/views`, and the code of `src/client.ts`, `src/transport.ts`, `src/sse.ts`, `src/log.ts`, `src/messages.ts`, `src/extension.ts` and `test/stub-gateway/`.
+
+Branch: `feat/p0a-panel`, from `feat/x1e-refusals-and-stops` (check with `git branch` that it exists and holds the X1e commit; stop if not). Estimate: 5 hours of agent work, then the owner's test (about 25 minutes). Version **0.3.0** (from 0.2.3). Needs nothing new from the server: the contract's `POST /ide/v1/chat/completions` is used as it is.
+
+## Goal and why
+
+Decision D-026: the editor's chat harness owns the prompt (59 tools, about 21 600 tokens before the first word), retries every failure five times and never passes the stop button on to the extension. This lot gives the extension a chat panel of its own and proves, with measures, the three things the editor's chat could not give: **a request that is sent once**, **a stop that closes the request**, and **a small first request** on the owner's Mac. It is a plain chat (no tools yet); Lot P0b adds the tools and the agent loop. Nothing in this lot writes a file in the workspace.
+
+## Questions for the owner, at the very start (one short message in French, a recommended answer each, nothing built before the answers)
+
+1. **Where the panel lives.** Recommended: the editor's **right side bar** (`contributes.viewsContainers.secondarySidebar`, read in the VS Code 1.147.0 bundle on 23 November 2026, not yet measured); if it does not show there on 1.147.0, the left activity bar, and the human test says how to drag it to the right. An editor tab is the other option.
+2. **The provider in the editor's chat** stays registered, unchanged, in 0.3.0 (recommended), until the owner's verdict after P0b; removing it then is a small separate change.
+3. **The conversation is kept in memory only** (recommended, privacy rules): it is lost when the window reloads or VS Code quits; nothing of it is written to disk, not even through the webview's `setState`. The chosen model is kept in memory too.
+
+## Design (binding unless the owner changes it at the start)
+
+- **The panel** is a `WebviewViewProvider` for the view `assistantCabinetCoder.chat` (name **Chat**) in the view container `assistantCabinetCoder` (title **Assistant Cabinet Coder**, a monochrome icon `images/panel.svg`). The conversation lives in the extension host, not in the webview: when the view is shown again, the webview is redrawn from it (no `retainContextWhenHidden`, no `setState`).
+- **The webview** is plain HTML, CSS and JavaScript in `media/panel.js` and `media/panel.css` (no framework, no build step, zero runtime dependencies). Its Content Security Policy is `default-src 'none'`; scripts only with a fresh nonce; styles and images only from `webview.cspSource`; no `unsafe-inline`, no `unsafe-eval`; `localResourceRoots` is the `media` folder only. The webview has no network: it talks to the extension only with `postMessage`. It builds every element with `createElement` and `textContent`: **no `innerHTML`, `outerHTML`, `insertAdjacentHTML` or `document.write`**.
+- **Messages between the webview and the host** are a small typed protocol (`src/protocol.ts`, pure): every message from the webview is validated (type, fields, lengths) and an unknown one is dropped and counted in the log, never echoed.
+- **Rendering of the model's text** (`src/render.ts`, pure): the text becomes a tree of blocks (paragraphs, headings, lists, fenced code blocks with their language, inline code, bold, italic); links stay plain text in this lot. The webview turns the tree into elements with `textContent`, so no text of the model can become markup.
+- **The conversation** (`src/conversation.ts`, pure): the list of user and assistant turns, the request body (`model`, `messages`, `stream: true`, `stream_options.include_usage: true`), one request at a time, no system prompt in this lot.
+- **The streamed call** (`src/chat.ts`): composes `transport.open` (with its `signal`) and `sse.parseSse`, reads text deltas, the finish reason, `usage` and an error event after the stream started, and maps a refusal with `client.failureFromResponse`. It may import what `client`, `transport`, `sse`, `log`, `codes` and `messages` export; it does **not** import `provider`, `convert` or `tokens` (the frozen provider), and it changes none of them; any duplication with `provider.ts` is accepted and written in `docs/ARCHITECTURE.md`.
+- **Send once, stop for real.** A failure is shown once in the panel with the sentence of `messages.ts` (`describeCode`, `describeOverflow`): **no retry**, automatic or hidden. The **Stop** button aborts the request's signal, which closes the connection at once; the partial answer stays on screen, marked as stopped.
+- **Model picker** in the panel: the server's models from `client.getModels`, refreshed with the connection; the status bar, the key, the address and discovery are the existing ones.
+- **The log** keeps its format: one line per chat call with the code, the status, the duration, the counts and `prompt_tokens` (additions only to `src/log.ts`, if a field is missing). No text, no model answer, no file name.
+
+## Files this lot may change or create
+
+Create: `src/panel.ts` (the thin VS Code adapter of the view), `src/protocol.ts`, `src/render.ts`, `src/conversation.ts`, `src/chat.ts`, `media/panel.js`, `media/panel.css`, `images/panel.svg`, new test files, `docs/human-tests/P0a-panel.md`, `docs/SESSION/SESSION-P0b-panel-agent.md` (alignment only, COMMON-RULES section 9).
+May change: `package.json` (version 0.3.0, `viewsContainers`, `views`, `files` gains `media/**` and the icon), `src/extension.ts` (registration of the view only), `src/messages.ts` and `src/log.ts` (additions only), `test/stub-gateway/stub.ts` and `test/stub-gateway/run.ts` (additions only, for example a scenario whose answer holds markup and code blocks), `README.md`, `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `AGENTS.md` and `docs/SESSION/COMMON-RULES.md` (identifiers table: additions only, for the view container, the view, the `media/` folder and the new modules).
+**Named exceptions** (existing tests this lot may change, each diff shown in the report): the version assertions `test/manifest.test.ts:34` and `test/provider-guards.test.ts:51-52` (`"0.2.3"` to `"0.3.0"`). This lot adds **no command and no setting**, so the "exactly the six commands" and "exactly the four settings" tests stay as they are; any other existing test that fails or seems to need a change: stop and tell the owner.
+**Untouchable (empty `git diff --stat feat/x1e-refusals-and-stops -- <paths>` in the report):** `src/provider.ts`, `src/convert.ts`, `src/tokens.ts`, `src/transport.ts`, `src/sse.ts`, `src/discovery.ts`, `src/platform.ts`, `src/keys.ts`, `src/client.ts`, `src/codes.ts`, `docs/IDE-CONTRACT.md`, `docs/VIBE-CODING-PRACTICES.md`, `docs/SPIKE-FINDINGS.md`, the frozen records in `docs/human-tests/`, every existing test file except the named exceptions, and everything in `../AssistantCabinetServer` (read-only).
+
+## Baseline
+
+Run the whole suite before the first edit and record the count (285 expected, X1e's final count).
+
+## Build
+
+1. The pure modules and their tests first (`protocol`, `render`, `conversation`), then `chat` against the stub, then the adapter `panel`, the webview files and the manifest.
+2. **Tests** (none needs VS Code or the network):
+   - `render`: every block kind; hostile input (`<script>`, `<img onerror=...>`, `javascript:` text, an unclosed fence, very long lines) comes out as plain text in the tree.
+   - `protocol`: valid messages accepted; unknown types, missing fields, wrong types and oversized text dropped.
+   - `conversation`: the request body; one request at a time; a stopped answer kept as stopped.
+   - `chat` with the stub: streamed text in order; `usage` read; an error event after the stream started; a refusal (`[stub:refuse:server_busy]`) gives **one** request in the stub's count and the sentence of `messages.ts`; an abort during the stub's `long` answer ends the request at once (`complete: false` in the stub's `onChat` event) and nothing more is read.
+   - Privacy: a unique secret in the user's text and in the stub's answer never reaches the log or an error message.
+   - **Webview guard** (a new test, beside `test/guards.test.ts`, which is not edited): `media/*.js` has no `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`, `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `setState`, `getState`, `localStorage`, `sessionStorage`, `console.`, and no `http://` or `https://` literal; the CSP built by `panel` has `default-src 'none'`, a nonce, and no `unsafe-inline` or `unsafe-eval`; the language guard covers `media/`.
+   - Manifest (a new test): the container in `secondarySidebar` (or the place the owner chose), the view, its icon, `media/**` in `files`, still no `languageModelTools` and no `chatAgents`.
+3. **Docs**: README (how to open the panel, what it does and does not do yet, the known limits); `docs/ARCHITECTURE.md` (the new modules, the data flow of one panel request, where to add a feature); `docs/DECISIONS.md` (the owner's three answers, and any choice of the agent within the lot); `docs/LESSONS.md` the moment a mistake is found.
+4. **Human test** `docs/human-tests/P0a-panel.md` (about 25 minutes, the Mac, zsh, a throw-away profile `/Users/ydekpo/p0a-vscode-data`, `/Users/ydekpo/p0a-vscode-ext`, `/Users/ydekpo/p0a-test-workspace`, the quit from the test instance's own Dock icon checked with `pgrep`, lessons 1, 2, 6, 10, 16, 20 and 22). Each question is one step with what the stub's console or the log must show:
+   - (a) **Placement**: where the panel appears on VS Code 1.147.0 signed out; no sign-in prompt comes from it; after **Developer: Reload Window** it is still there (the conversation is gone, by design).
+   - (b) **Stub, plain chat**: the answer streams; headings, lists and code blocks show; the stub's markup answer shows as text.
+   - (c) **Stub, stop**: during the `long` answer, **Stop**; the stub's console shows the end of that request with `complete=false` within a second or two.
+   - (d) **Stub, refusal**: `[stub:refuse:server_busy]` gives **one** request in the stub's console and the sentence once in the panel.
+   - (e) **The Mac's server**, with the warning about the desktop application first (this part **loads** `qwen2.5-coder:14b`, which can push out the model the desktop uses; the owner chooses the moment): `hello`; the time to the first word and to the end; `prompt_tokens` in the log (expected: a few dozen, against 21 597 for the editor's Agent request).
+   - (f) **The Mac's server, stop**: a long answer, **Stop**, then a new message at once; the log shows whether the second request starts at once or waits or is refused `server_busy` (this answers whether the server frees its slot when the client closes the request, a question the contract does not settle and that was given to the server project on 23 November 2026).
+
+## Done means
+
+Tests green and the count recorded against the baseline, lint and format clean, the named exceptions with their diffs, the empty `git diff --stat` of the untouchable paths, `assistant-cabinet-coder-0.3.0.vsix` built (with `npm run package`; any probe build goes to a scratch path, lesson 20), the human-test file written and walked as far as possible without VS Code. Report in French (COMMON-RULES section 6) with the git commands. This chat stays open for the owner's run; the run record is appended after it; then `docs/SESSION/SESSION-P0b-panel-agent.md` is aligned (COMMON-RULES section 9).
+
+---
+
+Binding rules, identifiers and VS Code facts: `docs/SESSION/COMMON-RULES.md`.

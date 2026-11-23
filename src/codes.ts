@@ -75,6 +75,15 @@ export function codeFromEnvelope(code: unknown): MachineCode | undefined {
 }
 
 /**
+ * The numbers of a `context_too_large` refusal (docs/IDE-CONTRACT.md section 3): the guard's
+ * estimate against the alias's window, or the characters against the server's ceiling. Positive
+ * integers only; the estimate is the server's (2 characters per token), not a real count.
+ */
+export type OverflowNumbers =
+  | { kind: "tokens"; estimatedTokens: number; contextWindow: number }
+  | { kind: "chars"; chars: number; limit: number };
+
+/**
  * The only error type the extension throws on purpose. `message` is the machine code itself, so
  * nothing the server (or the user) wrote can reach a log or a stack trace through it.
  * `detail` is a Node error code such as `ECONNREFUSED`, never text from a response.
@@ -83,13 +92,18 @@ export class CabinetError extends Error {
   readonly code: MachineCode;
   readonly status: number | undefined;
   readonly detail: string | undefined;
+  readonly overflow: OverflowNumbers | undefined;
 
-  constructor(code: MachineCode, options: { status?: number; detail?: string } = {}) {
+  constructor(
+    code: MachineCode,
+    options: { status?: number; detail?: string; overflow?: OverflowNumbers } = {},
+  ) {
     super(code);
     this.name = "CabinetError";
     this.code = code;
     this.status = options.status;
     this.detail = options.detail;
+    this.overflow = options.overflow;
   }
 }
 

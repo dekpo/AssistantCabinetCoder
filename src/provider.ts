@@ -6,8 +6,14 @@
  * No text, argument, result, image or key is ever written by this module: the log carries codes,
  * durations and counts, and the errors it throws hold sentences from `messages.ts` only.
  */
-import { failureFromResponse, getModels, type ClientOptions, type ModelInfo } from "./client";
-import { CabinetError, codeOf, type MachineCode } from "./codes";
+import {
+  failureFromResponse,
+  getModels,
+  requestFingerprint,
+  type ClientOptions,
+  type ModelInfo,
+} from "./client";
+import { CabinetError, codeOf, type MachineCode, type OverflowNumbers } from "./codes";
 import {
   ConvertError,
   ResponseReader,
@@ -24,6 +30,7 @@ import {
   describeConversionFailure,
   describeModelTooltip,
   describeNoServer,
+  describeOverflow,
 } from "./messages";
 import { parseSse } from "./sse";
 import { RatioTable, measureInput, measureMessages } from "./tokens";
@@ -36,6 +43,41 @@ export const MAX_CACHED_ADDRESSES = 8;
 /** Used when the server does not report a window or an output ceiling; the tooltip says so. */
 export const FALLBACK_WINDOW = 8192;
 export const FALLBACK_OUTPUT = 2048;
+/**
+ * How long a refusal that retrying cannot fix is remembered (decision D-025). VS Code 1.147.0
+ * retries every failure five times within about 15 seconds, whatever its kind (measured).
+ */
+export const REFUSAL_MEMORY_MS = 30_000;
+/** Refusals remembered at once; the oldest is forgotten first. */
+export const MAX_REMEMBERED_REFUSALS = 16;
+
+/** Refusals that the same request cannot escape by being sent again a few seconds later. */
+const FINAL_CODES: ReadonlySet<MachineCode> = new Set<MachineCode>([
+  "context_too_large",
+  "payload_too_large",
+  "key_needed",
+  "model_alias_not_allowed",
+  "model_not_permitted",
+  "provider_capability_unsupported",
+  "invalid_request",
+  "timeout",
+]);
+
+/**
+ * Whether a failure is one that retrying the same request cannot fix: the codes above, and the
+ * runtime's timeout (`provider_error` with status 504). `server_busy`, `provider_unreachable`,
+ * `rate_limited`, `empty_answer` and `provider_error` 502 may succeed later.
+ */
+export function isFinalRefusal(error: CabinetError): boolean {
+  return FINAL_CODES.has(error.code) || (error.code === "provider_error" && error.status === 504);
+}
+
+interface RememberedRefusal {
+  code: MachineCode;
+  status: number | undefined;
+  overflow: OverflowNumbers | undefined;
+  at: number;
+}
 
 export type Resolution =
   { ok: true; url: string; options: ClientOptions } | { ok: false; reason: NoServerReason };
@@ -106,6 +148,7 @@ export class ChatProvider {
   private readonly inflight = new Map<string, Promise<Outcome>>();
   private readonly offShown = new Set<string>();
   private readonly ratios = new RatioTable();
+  private readonly refusals = new Map<string, RememberedRefusal>();
   private generation = 0;
 
   constructor(
@@ -141,6 +184,7 @@ export class ChatProvider {
     this.generation += 1;
     this.cache.clear();
     this.inflight.clear();
+    this.refusals.clear();
     this.host.fireChange();
   }
 
@@ -166,7 +210,9 @@ export class ChatProvider {
         failure = new Error(
           error instanceof ConvertError
             ? describeConversionFailure(error.reason, error.toolName)
-            : describeCode(code),
+            : error instanceof CabinetError && error.overflow !== undefined
+              ? describeOverflow(error.overflow)
+              : describeCode(code),
         );
       }
     } finally {
@@ -198,10 +244,37 @@ export class ChatProvider {
         resolved.reason === "invalid_server_url" ? "invalid_server_url" : "server_not_configured",
       );
     }
-    const reply = await open(resolved.options, {
+    const body = JSON.stringify(built.body);
+    // The editor retries every failure five times (decision D-025): an identical request that the
+    // server has just refused for good is answered here, with no call and no status in the log.
+    const key = requestFingerprint(resolved.url, body);
+    const remembered = this.recallRefusal(key);
+    if (remembered !== undefined) {
+      throw remembered;
+    }
+    try {
+      await this.send(resolved.options, body, built.toolNames, call, report, signal, record);
+    } catch (error) {
+      if (error instanceof CabinetError && isFinalRefusal(error)) {
+        this.rememberRefusal(key, error);
+      }
+      throw error;
+    }
+  }
+
+  private async send(
+    options: ClientOptions,
+    body: string,
+    toolNames: ReturnType<typeof buildChatRequest>["toolNames"],
+    call: ChatCall,
+    report: (part: ChatPart) => void,
+    signal: AbortSignal,
+    record: CallRecord,
+  ): Promise<void> {
+    const reply = await open(options, {
       method: "POST",
       path: "/ide/v1/chat/completions",
-      body: JSON.stringify(built.body),
+      body,
       accept: "text/event-stream",
       signal,
     });
@@ -209,7 +282,7 @@ export class ChatProvider {
     if (reply.status < 200 || reply.status >= 300) {
       throw failureFromResponse(reply.status, await reply.text(), "ide");
     }
-    const reader = new ResponseReader(built.toolNames);
+    const reader = new ResponseReader(toolNames);
     try {
       for await (const event of parseSse(reply.chunks())) {
         if (event.kind === "error") {
@@ -239,6 +312,54 @@ export class ChatProvider {
     if (reader.promptTokens !== undefined) {
       this.ratios.observe(call.model.id, measureMessages(call.messages), reader.promptTokens);
     }
+  }
+
+  /** A fresh copy of a refusal remembered for this fingerprint, or `undefined`. */
+  private recallRefusal(key: string): CabinetError | undefined {
+    const entry = this.refusals.get(key);
+    if (entry === undefined) {
+      return undefined;
+    }
+    if (this.clock() - entry.at >= REFUSAL_MEMORY_MS) {
+      this.refusals.delete(key);
+      return undefined;
+    }
+    const options: { status?: number; overflow?: OverflowNumbers } = {};
+    if (entry.status !== undefined) {
+      options.status = entry.status;
+    }
+    if (entry.overflow !== undefined) {
+      options.overflow = entry.overflow;
+    }
+    return new CabinetError(entry.code, options);
+  }
+
+  private rememberRefusal(key: string, error: CabinetError): void {
+    const now = this.clock();
+    for (const [stored, entry] of this.refusals) {
+      if (now - entry.at >= REFUSAL_MEMORY_MS) {
+        this.refusals.delete(stored);
+      }
+    }
+    this.refusals.delete(key);
+    this.refusals.set(key, {
+      code: error.code,
+      status: error.status,
+      overflow: error.overflow,
+      at: now,
+    });
+    while (this.refusals.size > MAX_REMEMBERED_REFUSALS) {
+      const oldest = this.refusals.keys().next();
+      if (oldest.done === true) {
+        break;
+      }
+      this.refusals.delete(oldest.value);
+    }
+  }
+
+  /** How many refusals are remembered now (for tests; the fingerprints never leave the class). */
+  get rememberedRefusals(): number {
+    return this.refusals.size;
   }
 
   private requestModels(url: string, options: ClientOptions): Promise<Outcome> {

@@ -1,5 +1,7 @@
 # Lot X2b: the document tool and `describe` mode (PDF, Word, Excel, PowerPoint, CSV, scanned pages)
 
+> **PAUSED (23 November 2026, decision D-026).** Do not start this lot. The extension is moving to a chat panel of its own (Lots P0a and P0b); this file is kept as a record and will be rewritten for the panel after the owner's verdict on P0b.
+
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/LESSONS.md`, `docs/ARCHITECTURE.md`, `docs/HUMAN-TESTS-PROTOCOL.md`, **`docs/SPIKE-FINDINGS.md`** (items (d), (e), (i), (k)), `docs/IDE-CONTRACT.md` sections 2, 5 and 7, and the modules of Lot X2a (`attachments`, `tools`).
 
 Branch: `feat/x2b-read-document`, from `feat/x2a-view-image` once the owner has accepted it. Estimate: 5 hours of agent work plus the owner's test (about 25 minutes). Needs: the server's Lots 17a and 17b (**built and installed** on the Mac, package 0.1.11) with, on the server, `IDE_DOCUMENT_ANALYSIS=on` and, for image description, `IDE_VISION_ALIAS` naming an alias whose model reports `vision`. Those settings are the owner's to set, with `sudo` and a restart of the gateway: warn the owner first (COMMON-RULES section 7: the analysis runs in a separate worker that takes memory and CPU, and `describe` loads the vision model, which may push out the model the desktop application uses).

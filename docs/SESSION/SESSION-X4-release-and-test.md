@@ -1,5 +1,7 @@
 # Lot X4: robustness, release and the full human test
 
+> **PAUSED (23 November 2026, decision D-026).** Do not start this lot. The extension is moving to a chat panel of its own (Lots P0a and P0b); this file is kept as a record and will be rewritten after the owner's verdict on P0b.
+
 > **Read first:** `docs/VIBE-CODING-PRACTICES.md`, `docs/SESSION/COMMON-RULES.md`, all of `docs/` of this repository (`ARCHITECTURE`, `DECISIONS`, `LESSONS`, `HUMAN-TESTS-PROTOCOL`, `SPIKE-FINDINGS`, every `docs/human-tests/` file with its run record), `docs/IDE-CONTRACT.md`, the server repository's `docs/USER-GUIDE.md` section on the editor surface (read-only, if Lot 15b is done), and the server lots' reports for the compatibility table.
 
 Branch: `feat/x4-release`, from the newest accepted extension branch. Estimate: 5 to 7 hours of agent work plus the owner's full human test (about 60 minutes, on a real server). Needs: the server's lots as far as they are done; the rest is tested against the stub and said so.

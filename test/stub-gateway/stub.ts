@@ -16,6 +16,10 @@
  * `empty_answer` 502), `long` (a trickle of text for about a minute: for the stop button) and
  * `cut` (the connection is destroyed after two chunks). A marker may name the tool of `tool-call`:
  * `[stub:tool-call:create_file]` calls the tool of that exact name when the request offers it.
+ * `refuse` answers the contract's error envelope of the code the marker names
+ * (`[stub:refuse:server_busy]`; `context_too_large` when none) with its status, and a
+ * `context_too_large` carries the guard's numbers, so an editor's retries of a refusal can be
+ * counted.
  * With `stream_options.include_usage` the stream ends with a usage chunk whose prompt tokens are the
  * text characters of the request divided by four, so a client can calibrate its own estimate.
  * An image sent to a model whose `capabilities.vision` is false is refused with
@@ -41,7 +45,16 @@ export const STUB_MODES: readonly StubMode[] = [
 ];
 
 export type Scenario =
-  "text" | "tool-call" | "error" | "error-http" | "slow" | "split" | "empty" | "long" | "cut";
+  | "text"
+  | "tool-call"
+  | "error"
+  | "error-http"
+  | "slow"
+  | "split"
+  | "empty"
+  | "long"
+  | "cut"
+  | "refuse";
 
 export const SCENARIOS: readonly Scenario[] = [
   "text",
@@ -53,7 +66,42 @@ export const SCENARIOS: readonly Scenario[] = [
   "empty",
   "long",
   "cut",
+  "refuse",
 ];
+
+/**
+ * The status of each contract error code, as `docs/IDE-CONTRACT.md` section 3 lists it, for the
+ * scenario `refuse` (`[stub:refuse:<code>]`). `provider_error` is its 504, a runtime timeout.
+ */
+export const REFUSAL_STATUS: Readonly<Record<string, number>> = {
+  invalid_request: 422,
+  model_alias_not_allowed: 400,
+  model_not_permitted: 400,
+  context_too_large: 413,
+  payload_too_large: 413,
+  provider_capability_unsupported: 400,
+  provider_unreachable: 503,
+  provider_error: 504,
+  empty_answer: 502,
+  server_busy: 503,
+  rate_limited: 429,
+  unauthorized: 401,
+};
+
+/** What the stub tells `onChat` about one chat request: names of its own scenarios and counts. */
+export interface ChatEvent {
+  /** The chat request's number since the process started (1, 2, ...). */
+  id: number;
+  phase: "start" | "end";
+  scenario: Scenario;
+  /** The refused code of the scenario `refuse`. */
+  code: string | undefined;
+  model: string | undefined;
+  tools: number;
+  /** On `end`: how long the answer took and whether it was sent to its end. */
+  ms?: number;
+  complete?: boolean;
+}
 
 export interface StubOptions {
   mode?: StubMode;
@@ -65,6 +113,8 @@ export interface StubOptions {
   /** Pause between two chunks of the `long` scenario (default 250) and how many it sends (240). */
   longChunkMs?: number;
   longChunks?: number;
+  /** Told when a chat request starts and when its answer ends (used by `npm run stub`). */
+  onChat?: (event: ChatEvent) => void;
 }
 
 export interface RecordedRequest {
@@ -426,6 +476,9 @@ function parseChatRequest(text: string): ChatRequest {
   return request;
 }
 
+/** Chat requests seen by this process, for the numbers of `onChat`. */
+let chatCount = 0;
+
 function modelLacksVision(model: string | undefined): boolean {
   return STUB_MODELS.find((entry) => entry.id === model)?.capabilities.vision === false;
 }
@@ -436,6 +489,23 @@ async function chat(
   options: StubOptions,
 ): Promise<void> {
   const request = parseChatRequest(await readBody(req));
+  if (options.onChat !== undefined) {
+    const notify = options.onChat;
+    const started = Date.now();
+    chatCount += 1;
+    const event: ChatEvent = {
+      id: chatCount,
+      phase: "start",
+      scenario: request.scenario ?? "text",
+      code: request.scenario === "refuse" ? request.wantedTool : undefined,
+      model: request.model,
+      tools: request.tools.length,
+    };
+    notify(event);
+    res.on("close", () =>
+      notify({ ...event, phase: "end", ms: Date.now() - started, complete: res.writableFinished }),
+    );
+  }
   if (request.hasImage && request.model === STUB_SMALL_MODEL.id) {
     sendJson(res, 400, envelope("provider_capability_unsupported", { capability: "vision" }));
     return;
@@ -453,6 +523,13 @@ async function chat(
       : undefined;
   const textStream = (): string => withUsage(TEXT_STREAM, usage(TEXT_COMPLETION_CHARS)).join("");
   switch (request.scenario ?? "text") {
+    case "refuse": {
+      const code = request.wantedTool ?? "context_too_large";
+      const data =
+        code === "context_too_large" ? { estimated_tokens: 50500, context_window: 32768 } : {};
+      sendJson(res, REFUSAL_STATUS[code] ?? 400, envelope(code, data));
+      return;
+    }
     case "error-http":
       sendJson(res, 503, envelope("provider_unreachable"));
       return;

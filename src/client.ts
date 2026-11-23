@@ -1,9 +1,17 @@
 /**
  * Typed calls to the server over the transport: `GET /health` and `GET /ide/v1/models`, and the
  * mapping of every status and error envelope to a machine code. The chat call is Lot X1b's.
- * No sentence, no response text and no key ever leaves this module: errors carry codes only.
+ * No sentence, no response text and no key ever leaves this module: errors carry codes only (and
+ * the numbers of a window overflow).
  */
-import { CabinetError, codeFromEnvelope, codeOf, type MachineCode } from "./codes";
+import { createHash } from "node:crypto";
+import {
+  CabinetError,
+  codeFromEnvelope,
+  codeOf,
+  type MachineCode,
+  type OverflowNumbers,
+} from "./codes";
 import { open, type RequestSpec, type TransportOptions } from "./transport";
 
 /** The version of the editor interface this extension speaks (`ide_api`). */
@@ -72,9 +80,11 @@ export function failureFromResponse(
   if (status >= 300 && status < 400) {
     return new CabinetError("redirect_refused", { status });
   }
-  const fromBody = codeFromEnvelope(envelopeCode(bodyText));
+  const envelope = readEnvelope(bodyText);
+  const fromBody = codeFromEnvelope(envelope.code);
   if (fromBody !== undefined) {
-    return new CabinetError(fromBody, { status });
+    const overflow = fromBody === "context_too_large" ? overflowFrom(envelope.data) : undefined;
+    return new CabinetError(fromBody, overflow === undefined ? { status } : { status, overflow });
   }
   if (status === 429) {
     return new CabinetError("rate_limited", { status });
@@ -85,14 +95,53 @@ export function failureFromResponse(
   return new CabinetError("unexpected_response", { status });
 }
 
-function envelopeCode(bodyText: string): unknown {
+/**
+ * A digest of a server address and a request body, so that a request can be recognised without
+ * keeping its text. Kept in memory only by the provider, never written or logged.
+ */
+export function requestFingerprint(url: string, body: string): string {
+  return createHash("sha256").update(url).update("\n").update(body).digest("hex");
+}
+
+/** The `code` and `data` of an error envelope; the `message` is never read. */
+function readEnvelope(bodyText: string): { code: unknown; data: unknown } {
   try {
     const parsed: unknown = JSON.parse(bodyText);
-    const error = (parsed as { error?: unknown } | null)?.error;
-    return (error as { code?: unknown } | null)?.code;
+    const error = (parsed as { error?: unknown } | null)?.error as {
+      code?: unknown;
+      data?: unknown;
+    } | null;
+    return { code: error?.code, data: error?.data };
   } catch {
+    return { code: undefined, data: undefined };
+  }
+}
+
+function positiveCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
+/**
+ * The numbers of a `context_too_large` envelope: `estimated_tokens` and `context_window` (the
+ * guard), else `chars` and `limit` (the character ceiling); each pair only when both are positive
+ * integers. Nothing else of `data` is kept.
+ */
+export function overflowFrom(data: unknown): OverflowNumbers | undefined {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
     return undefined;
   }
+  const fields = data as Record<string, unknown>;
+  const estimatedTokens = positiveCount(fields["estimated_tokens"]);
+  const contextWindow = positiveCount(fields["context_window"]);
+  if (estimatedTokens !== undefined && contextWindow !== undefined) {
+    return { kind: "tokens", estimatedTokens, contextWindow };
+  }
+  const chars = positiveCount(fields["chars"]);
+  const limit = positiveCount(fields["limit"]);
+  if (chars !== undefined && limit !== undefined) {
+    return { kind: "chars", chars, limit };
+  }
+  return undefined;
 }
 
 async function getJson(

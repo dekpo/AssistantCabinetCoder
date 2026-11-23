@@ -1,5 +1,7 @@
 # Implementation plan: the VS Code extension "Assistant Cabinet Coder" (revised 27 October 2026)
 
+> **Superseded in part (23 November 2026, decision D-026).** The extension is moving from the editor's chat to a chat panel of its own. The next lots are `SESSION-P0a-panel.md` and `SESSION-P0b-panel-agent.md`; Lots X2a, X2b, X3 and X4 below are paused and will be planned again on the panel after the owner's verdict on P0b. The rest of this plan is kept as the record of the first design.
+
 Project: **AssistantCabinetCoder** (folder `C:\Users\dwyol\Documents\CURSOR\AssistantCabinetCoder`, remote `https://github.com/dekpo/AssistantCabinetCoder.git`). It replaces the first plan, which called the project `AssistantCabinetVSCode`. The binding rules of every chat are in `COMMON-RULES.md`; the contract with the server is `docs/IDE-CONTRACT.md` (tracked); the lots are the `SESSION-X*.md` files, one per chat. This plan is a local session document (the folder is in `.gitignore`); anything of it that is committed is in English.
 
 ## 1. What it is, and how it is installed
