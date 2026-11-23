@@ -117,6 +117,8 @@ Concurrency: a gate separate from the desktop's (`IDE_MAX_CONCURRENT_GENERATIONS
 
 The status code and headers are sent after the first chunk of the runtime is received (an unreachable runtime is an HTTP error with a code, not a broken stream), exactly as the desktop route does. A long prompt therefore delays the headers: clients use a generous first-byte timeout (the extension's default is 900 seconds). An error after the stream started is one `data: {"error": {"code","message","data"}}` event followed by `data: [DONE]`.
 
+**Stop** (D-100). A client that closes the connection before the answer ends (an editor's Stop button) ends the request at once, at every stage, streamed or not: a request still waiting for a slot gives its place back and never reaches the runtime; during the prompt evaluation or the answer, the gateway closes its request to the runtime, which stops generating, and the slot is free for the next request at once. Nothing more is sent to the closed connection, and the register records the outcome `client_closed`. No error code is involved.
+
 ### Errors
 
 The usual envelope `{"error":{"code","message","data"}}`. Codes used: `invalid_request` (422, field names only), `model_alias_not_allowed` 400, `model_not_permitted` 400, `context_too_large` 413, `payload_too_large` 413, `provider_capability_unsupported` 400, `provider_unreachable` 503, `provider_error` 502/504, `empty_answer` 502, `server_busy` 503, `rate_limited` 429, `unauthorized` 401. **No new error code is added anywhere in this contract.** No error, log line or register entry contains message text, tool names with arguments, tool results, tool definitions, image bytes or file content.
