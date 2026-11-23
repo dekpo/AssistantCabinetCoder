@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { describe, it } from "node:test";
 import { formatCallLine } from "../src/log";
-import { contentSecurityPolicy, newNonce, panelHtml } from "../src/page";
+import { ICONS, contentSecurityPolicy, newNonce, panelHtml } from "../src/page";
 import { ROOT, listFiles, readJson, readText } from "./support/repo";
 
 const WEBVIEW_SCRIPTS = listFiles("media", [".js"]);
@@ -89,6 +89,28 @@ describe("the page's Content Security Policy", () => {
     assert.match(scripts[0]?.[1] ?? "", new RegExp(` nonce="${nonce}"`));
     assert.equal(scripts[0]?.[2], "");
     assert.equal(/<style|\sstyle=|\son[a-z]+=/i.test(html), false);
+  });
+
+  it("draws the panel's icons in a hidden element: plain paths in the theme's colour, no address", () => {
+    const html = panelHtml({
+      cspSource: SOURCE,
+      nonce: newNonce(),
+      scriptUri: `${SOURCE}/media/panel.js`,
+      styleUri: `${SOURCE}/media/panel.css`,
+    });
+    const block = /<div id="icons" hidden>([\s\S]*?)<\/div>/.exec(html);
+    assert.ok(block !== null);
+    const names = [...(block[1] ?? "").matchAll(/<svg data-icon="([a-z]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(names, ["send", "stop", "new", "history", "back", "delete"]);
+    assert.deepEqual(Object.keys(ICONS), names);
+    for (const pathData of Object.values(ICONS)) {
+      assert.match(pathData, /^[MmLlHhVvZzAaCc0-9 .,-]+$/);
+    }
+    assert.equal(/https?:|xlink|<use|<image|<foreignObject/i.test(html), false);
+    assert.equal(
+      [...(block[1] ?? "").matchAll(/<path fill="currentColor" fill-rule="evenodd" d="/g)].length,
+      names.length,
+    );
   });
 
   it("uses a fresh nonce for every page and escapes what it is given", () => {

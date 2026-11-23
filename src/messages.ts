@@ -270,27 +270,20 @@ export function describeOverflow(numbers: OverflowNumbers): string {
  */
 export const PANEL = {
   viewTitle: "Chat",
+  // The icons' tooltips (the buttons show no word).
   send: "Send",
   stop: "Stop",
-  newConversation: "New",
-  newConversationTitle: "Start a new conversation",
+  newConversation: "New conversation",
   history: "History",
-  historyTitle: "Show the saved conversations of this workspace",
   back: "Back",
-  open: "Open",
   delete: "Delete",
   model: "Model",
   noModel: "No model",
-  placeholder: "Ask the model. Enter sends, Shift+Enter starts a new line.",
-  you: "You",
+  placeholder: "Ask the model",
   reading: "Reading the request",
   answering: "Answering",
   seconds: "s",
-  emptyConversation:
-    "A plain chat with a model of your Assistant Cabinet server. No file of the workspace is read or changed.",
-  historyEmpty: "No saved conversation in this workspace yet.",
-  historyHint:
-    "Conversations are saved on this computer, in the private storage of VS Code for this workspace.",
+  historyEmpty: "No saved conversation yet.",
   stoppedAnswering: "Stopped.",
   stoppedReading:
     "Stopped before the first word arrived. An older server finishes reading the request before it takes the next one, so your next message may wait a moment.",

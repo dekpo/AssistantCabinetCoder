@@ -393,3 +393,33 @@ describe("the chat session", () => {
     assert.equal(await fs.readFile(path.join(root, `${id}.json`), "utf8"), "{ damaged");
   });
 });
+
+describe("the model list at start", () => {
+  class CountingHost extends FakeHost {
+    resolves = 0;
+    override resolve(): Promise<SessionResolution> {
+      this.resolves += 1;
+      return super.resolve();
+    }
+  }
+
+  it("is asked for once when the webview opens while the extension's own refresh is on its way", async () => {
+    const root = path.join(parent, "models-once", "conversations");
+    const host = new CountingHost(new FileStore(root));
+    const session = track(new ChatSession(host));
+    const refresh = session.refreshModels();
+    await session.receive({ type: "ready" });
+    await refresh;
+    assert.equal(host.resolves, 1);
+    assert.deepEqual(host.lastState().models, ["cabinet-chat", "cabinet-code", "cabinet-plain"]);
+  });
+
+  it("is asked for when the webview opens and no refresh is on its way", async () => {
+    const root = path.join(parent, "models-ready", "conversations");
+    const host = new CountingHost(new FileStore(root));
+    const session = track(new ChatSession(host));
+    await session.receive({ type: "ready" });
+    assert.equal(host.resolves, 1);
+    assert.deepEqual(host.lastState().models, ["cabinet-chat", "cabinet-code", "cabinet-plain"]);
+  });
+});

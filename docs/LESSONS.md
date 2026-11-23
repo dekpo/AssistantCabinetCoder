@@ -148,6 +148,12 @@ One numbered entry per mistake already made, written the moment it is found: wha
 
 ## 25. Lessons 3 and 18 happened again in Lot P0a
 
-23 November 2026. (1) The writing tool turned the escape sequence of an accented letter into the letter itself in `test/chat.test.ts`; the language guard caught it at the first full run, because the check of lesson 3 had been run on `src` only, not on `test`. (2) To fix two patterns of the human-test file, the agent put document text holding quotes into a `node -e '...'` command; zsh stopped on a glob before running anything, so nothing was written and no command ran, but lesson 18 forbids exactly that.
+23 November 2026. (1) The writing tool turned the escape sequence of an accented letter into the letter itself in `test/chat.test.ts`; the language guard caught it at the first full run, because the check of lesson 3 had been run on `src` only, not on `test`. (2) To fix two patterns of the human-test file, the agent put document text holding quotes into a `node -e '...'` command; zsh stopped on a glob before running anything, so nothing was written and no command ran, but lesson 18 forbids exactly that. (3) After the human run, during the panel's new look, three replacements in `src/session.ts` were made with a `node -e` script instead of the editing tool (lesson 21); the result was read back, found intact, and covered by the full suite.
 
 **Rule:** the check of lesson 3 runs on `src`, `test` and `media` after every written file that may hold a non-ASCII character; any change to a document, even a few characters, is made with the editing tool, never inside a shell command.
+
+## 26. A stop-before-the-first-word measure was spoiled twice by the script's own design
+
+23 November 2026, Part 5 of the human test of Lot P0a. The script sent `hello` in the same conversation as the stopped long question, so `hello` carried the 60 000 characters again and its wait could not be told apart from the old reading. The retry used the same long text, which the server had kept from the first try, so the first word came after 117 ms and the stop fell while answering. Only a third try, with a new conversation and a text the server had never read, measured what was meant.
+
+**Rule:** a measure of what follows a stop sends the next request in a **new** conversation, and a stop before the first word uses a text the server has **never read** (one per try, never reused). The agent reads the log before calling the try done: the stopped line must have no status and no `first_ms`.

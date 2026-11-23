@@ -4,7 +4,10 @@
  * the extension with postMessage only. It holds no sentence of its own (the labels come from the
  * extension) and keeps nothing: the extension redraws it whenever it is shown again.
  * Every element is built with createElement and every text is set with textContent, so nothing
- * the model or the user writes can become markup.
+ * the model or the user writes can become markup. Icons are copied from the page's hidden
+ * `#icons` element, drawn by `src/page.ts`.
+ * Layout: a header (the conversation's title, then the New and History icons), the conversation,
+ * and the composer (an input that grows with its text, then the model and the send or stop button).
  */
 (function () {
   "use strict";
@@ -21,6 +24,7 @@
   let ticker = undefined;
   let draftTimer = undefined;
   let turnNodes = [];
+  let phaseNode = undefined;
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -37,24 +41,52 @@
     return typeof labels[key] === "string" ? labels[key] : "";
   }
 
+  // The page's icons, copied on demand.
+  const iconSource = document.getElementById("icons");
+
+  function icon(name) {
+    const children = iconSource ? iconSource.children : [];
+    for (let index = 0; index < children.length; index++) {
+      const candidate = children[index];
+      if (candidate.getAttribute && candidate.getAttribute("data-icon") === name) {
+        return candidate.cloneNode(true);
+      }
+    }
+    return el("span", "icon-missing");
+  }
+
+  /** Puts an icon in a button, with its label as tooltip and for screen readers. */
+  function setIcon(button, name, key) {
+    if (button.iconName !== name) {
+      button.replaceChildren(icon(name));
+      button.iconName = name;
+    }
+    button.title = label(key);
+    button.setAttribute("aria-label", label(key));
+    button.setAttribute("data-action", name);
+  }
+
   // The skeleton, built once.
   const app = document.getElementById("app");
   const header = el("div", "header");
-  const modelSelect = el("select", "model");
-  const newButton = el("button", "secondary");
-  const historyButton = el("button", "secondary");
-  header.append(modelSelect, newButton, historyButton);
+  const titleView = el("div", "title");
+  const newButton = el("button", "icon-button new");
+  const historyButton = el("button", "icon-button history-toggle");
+  header.append(titleView, newButton, historyButton);
   const notice = el("div", "notice");
   const historyView = el("div", "history");
   const turnsView = el("div", "turns");
-  const status = el("div", "status");
+  const localError = el("div", "local-error");
   const composer = el("div", "composer");
   const input = el("textarea", "input");
-  input.rows = 3;
+  input.rows = 1;
+  const toolbar = el("div", "toolbar");
+  const modelSelect = el("select", "model");
+  const spacer = el("div", "spacer");
   const sendButton = el("button", "send");
-  const localError = el("div", "local-error");
-  composer.append(input, sendButton);
-  app.append(header, notice, historyView, turnsView, status, localError, composer);
+  toolbar.append(modelSelect, spacer, sendButton);
+  composer.append(input, toolbar);
+  app.append(header, notice, historyView, turnsView, localError, composer);
 
   function busy() {
     return state !== undefined && state.phase !== "idle";
@@ -62,6 +94,15 @@
 
   function post(message) {
     vscode.postMessage(message);
+  }
+
+  /** The input grows with its text, up to the stylesheet's maximum height. */
+  function fitInput() {
+    if (!input.style) {
+      return;
+    }
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + "px";
   }
 
   // Blocks of an answer, as the extension's renderer built them.
@@ -124,16 +165,22 @@
   function turnNode(turn) {
     if (turn.role === "user") {
       const node = el("div", "turn user");
-      node.append(el("div", "who", label("you")), el("div", "user-text", turn.text));
+      node.append(el("div", "user-text", turn.text));
       return node;
     }
     const node = el("div", "turn assistant" + (turn.pending ? " pending" : ""));
-    node.append(el("div", "who", turn.model));
+    node.title = turn.model;
     const body = el("div", "answer");
     for (const block of turn.blocks || []) {
       body.append(blockNode(block));
     }
     node.append(body);
+    if (turn.pending) {
+      const phase = el("div", "phase");
+      phase.append(el("span", "pulse"), el("span", "phase-text"));
+      node.append(phase);
+      phaseNode = phase;
+    }
     if (NOTES[turn.note]) {
       node.append(el("div", "note", label(NOTES[turn.note])));
     }
@@ -155,9 +202,7 @@
     const follow = nearBottom();
     turnsView.replaceChildren();
     turnNodes = [];
-    if (state.turns.length === 0) {
-      turnsView.append(el("div", "empty", label("emptyConversation")));
-    }
+    phaseNode = undefined;
     for (const turn of state.turns) {
       const node = turnNode(turn);
       turnNodes.push(node);
@@ -168,13 +213,27 @@
     }
   }
 
+  function drawTitle() {
+    let title = "";
+    if (showingHistory) {
+      title = label("history");
+    } else {
+      for (const entry of state.history) {
+        if (entry.id === state.conversationId) {
+          title = entry.title || label("untitled");
+        }
+      }
+    }
+    titleView.textContent = title;
+    titleView.title = title;
+  }
+
   function drawHistory() {
     historyView.replaceChildren();
     historyView.hidden = !showingHistory;
     if (!showingHistory) {
       return;
     }
-    historyView.append(el("div", "hint", label("historyHint")));
     if (state.history.length === 0) {
       historyView.append(el("div", "empty", label("historyEmpty")));
     }
@@ -190,7 +249,8 @@
         showingHistory = false;
         post({ type: "openConversation", id: entry.id });
       });
-      const remove = el("button", "entry-delete secondary", label("delete"));
+      const remove = el("button", "icon-button entry-delete");
+      setIcon(remove, "delete", "delete");
       remove.disabled = busy();
       remove.addEventListener("click", function () {
         post({ type: "deleteConversation", id: entry.id });
@@ -215,20 +275,26 @@
     }
     modelSelect.disabled = busy() || state.models.length === 0;
     modelSelect.title = label("model");
+    modelSelect.setAttribute("aria-label", label("model"));
   }
 
-  function drawStatus() {
+  /** The phase and its seconds, inside the answer that is coming. */
+  function drawPhase() {
+    if (phaseNode === undefined) {
+      return;
+    }
+    const text = phaseNode.children[1];
     if (!busy()) {
-      status.textContent = "";
-      status.hidden = true;
+      phaseNode.hidden = true;
       return;
     }
     const elapsed =
       typeof state.since === "number"
         ? Math.max(0, Math.floor((Date.now() - state.since) / 1000))
         : 0;
-    status.hidden = false;
-    status.textContent =
+    phaseNode.hidden = false;
+    phaseNode.className = "phase " + (state.phase === "reading" ? "reading" : "answering");
+    text.textContent =
       label(state.phase === "reading" ? "reading" : "answering") +
       " (" +
       elapsed +
@@ -237,25 +303,38 @@
       ")";
   }
 
-  function drawControls() {
-    sendButton.textContent = busy() ? label("stop") : label("send");
+  function drawSendButton() {
+    if (busy()) {
+      setIcon(sendButton, "stop", "stop");
+      sendButton.disabled = false;
+    } else {
+      setIcon(sendButton, "send", "send");
+      sendButton.disabled = input.value.trim() === "";
+    }
     sendButton.classList.toggle("stop", busy());
-    newButton.textContent = label("newConversation");
-    newButton.title = label("newConversationTitle");
+  }
+
+  function drawControls() {
+    drawSendButton();
+    setIcon(newButton, "new", "newConversation");
     newButton.disabled = busy();
-    historyButton.textContent = showingHistory ? label("back") : label("history");
-    historyButton.title = label("historyTitle");
+    setIcon(
+      historyButton,
+      showingHistory ? "back" : "history",
+      showingHistory ? "back" : "history",
+    );
     historyButton.disabled = busy() && !showingHistory;
     input.placeholder = label("placeholder");
+    input.setAttribute("aria-label", label("placeholder"));
     notice.textContent = state.notice || "";
     notice.hidden = !state.notice;
     if (busy() && ticker === undefined) {
-      ticker = setInterval(drawStatus, 1000);
+      ticker = setInterval(drawPhase, 1000);
     } else if (!busy() && ticker !== undefined) {
       clearInterval(ticker);
       ticker = undefined;
     }
-    drawStatus();
+    drawPhase();
   }
 
   function drawAll() {
@@ -265,6 +344,7 @@
     drawModels();
     drawHistory();
     drawTurns();
+    drawTitle();
     drawControls();
   }
 
@@ -272,6 +352,7 @@
     state = next;
     if (typeof next.draft === "string") {
       input.value = next.draft;
+      fitInput();
     }
     drawAll();
   }
@@ -324,6 +405,7 @@
     showLocalError("");
     post({ type: "send", text: text });
     input.value = "";
+    fitInput();
     sendDraft();
   }
 
@@ -338,8 +420,17 @@
   });
   input.addEventListener("input", function () {
     showLocalError("");
+    fitInput();
+    if (state !== undefined) {
+      drawSendButton();
+    }
     clearTimeout(draftTimer);
     draftTimer = setTimeout(sendDraft, DRAFT_DELAY_MS);
+  });
+  composer.addEventListener("click", function (event) {
+    if (event.target === composer || event.target === toolbar || event.target === spacer) {
+      input.focus();
+    }
   });
   newButton.addEventListener("click", function () {
     showingHistory = false;
@@ -374,7 +465,6 @@
 
   showLocalError("");
   notice.hidden = true;
-  status.hidden = true;
   historyView.hidden = true;
   post({ type: "ready" });
 })();

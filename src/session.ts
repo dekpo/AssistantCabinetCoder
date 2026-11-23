@@ -82,6 +82,8 @@ export class ChatSession {
   private draft = "";
   private starting: Promise<void> | undefined;
   private modelTicket = 0;
+  /** The model refresh on its way, so the webview opening at start does not ask a second time. */
+  private refreshing: Promise<void> | undefined;
   private answerTimer: ReturnType<typeof setTimeout> | undefined;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private saving: Promise<void> = Promise.resolve();
@@ -133,7 +135,19 @@ export class ChatSession {
   }
 
   /** The model list again (start, a changed connection, a refused alias). */
-  async refreshModels(): Promise<void> {
+  refreshModels(): Promise<void> {
+    const run = this.fetchModels();
+    this.refreshing = run;
+    const clear = (): void => {
+      if (this.refreshing === run) {
+        this.refreshing = undefined;
+      }
+    };
+    run.then(clear, clear);
+    return run;
+  }
+
+  private async fetchModels(): Promise<void> {
     const ticket = ++this.modelTicket;
     const resolved = await this.host.resolve();
     if (ticket !== this.modelTicket) {
@@ -172,7 +186,7 @@ export class ChatSession {
         });
         this.postState(this.draft);
         if (this.models.length === 0) {
-          await this.refreshModels();
+          await (this.refreshing ?? this.refreshModels());
         }
         return;
       case "draft":

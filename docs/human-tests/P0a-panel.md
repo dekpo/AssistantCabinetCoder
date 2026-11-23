@@ -298,3 +298,68 @@ Nothing was turned on on the server by this test, so nothing is undone there. `q
 - The whole panel ran without the editor: `test/session.test.ts` (the panel's logic against the stub and a real temporary folder: send, stop while answering and while reading, refusal sent once, history, deletion, an answer cut by a closed window, persistence across a new session), `test/chat.test.ts` (the stub's `complete=false` a few hundred milliseconds after a stop), `test/webview.test.ts` (`media/panel.js` in a fake document: what it draws and posts; no element is made from the model's text) and the guards of `test/panel-guards.test.ts`.
 - Read-only on the Mac's server: `/health` version 0.1.13; `qwen2.5-coder:14b` window 32768, ceiling 16384; limit 200 000 characters.
 - **Not walked**, the owner's part: where VS Code 1.147.0 really puts the panel, how it looks in the editor's theme, the reload, and everything against the real server.
+
+## Run record
+
+23 November 2026, on the Mac, with VS Code 1.147.0 and the package 0.3.0 (31 files, 76.47 KB) installed in the test profile only. The test was walked in the chat one step at a time. Times in the log are UTC.
+
+- **Part 0:** no test instance before (`pgrep` gave `0`); the owner's settings file hash `90df2fbc142df561...` (the same as on 21 November); `long-text.txt` of 60 026 characters; the stub listening on 8099. No **Update** button in the owner's normal window.
+- **Part 1, passed.**
+  - The window title was `p0a-test-workspace`, the Extensions view listed **Assistant Cabinet Coder 0.3.0** only, and the status bar read **Cabinet: connected**.
+  - **The panel is in the right side bar**, but VS Code shows it as a **text tab** `Assistant Cabinet Coder` beside its own `Chat` tab, not as an icon. The secondary side bar shows its view containers by title.
+  - The model list held the three stub models. `hello` was answered **Hello from the stub, cafe.** with the accent on the e (stub `complete=true`; log `status=200 ms=7 prompt_tokens=2 first_ms=6`).
+  - `[stub:markup]` drew everything expected. The `<script>`, `<img ...>` and `javascript:` lines were plain text, and the `html` block was not bold (log `status=200 ms=5 prompt_tokens=12 completion_tokens=78 first_ms=4`).
+  - After **Developer: Reload Window** the whole conversation was back. **History** listed one entry `hello` with its date and **Delete**. In storage there was one `<id>.json` (932 bytes) and `index.json` (93 bytes), both `-rw-------`.
+- **Part 2, passed.**
+  - `[stub:long]` was stopped after `word13`, and **Stopped.** was shown. The stub said `ms=3428 complete=false`; the log said `ms=3433 first_ms=6 code=cancelled`. The stub saw the close within 5 ms of the extension.
+  - `[stub:refuse:server_busy]` was shown once in a red box. The stub console has **one** `start scenario=refuse code=server_busy`; the log has `status=503 ms=4 code=server_busy`.
+  - The confirmation read "Delete the conversation "hello"? It is removed from this computer and cannot be restored." with **Cancel** and **Delete**. After **Delete**, only `[stub:long]` was left. The `hello` file was gone, and the folder was `drwx------`.
+  - No `call=store` or `call=webview` line appeared in the whole run.
+- **Part 3, passed.**
+  - The owner said "go" (the desktop application was not in use). The server was `/health` version **0.1.13**, serving 23 models; `qwen2.5-coder:14b` had a window of 32768 and a ceiling of 16384.
+  - With the settings emptied, discovery connected **at once**, with no reload and no **Test Connection**.
+  - `hello` was answered **Hello! How can I assist you today?** (log `status=200 ms=2613 prompt_tokens=31 completion_tokens=10 first_ms=2443`). That is **31 prompt tokens against 21 597** for the editor's Agent request (D-024).
+  - **Not seen:** the owner did not notice **Reading the request** or **Answering**, although the reading lasted 2.4 s. The phase is drawn on a dim line just above the input, far from where the answer grows.
+- **Part 4, passed.**
+  - The owner played the step three times, deleting and recreating conversations, because the answers came too fast for screenshots. **Answering (5 s)** was seen on the line above the input. Each stop came while answering (log `code=cancelled` with `ms=22808`, `12873` and `17501`).
+  - The next request each time received its first word in 167, 63 and 84 ms; the last was `hello`, `status=200 ms=273 prompt_tokens=940 first_ms=84`. There was no `server_busy`. An answer of about 2 000 tokens would still have been running had the stop not freed the slot, so the slot was free.
+  - The gap between a stop and the next request was at least 15 s (screenshots), so "at once" was not measured strictly.
+  - The owner noted that the models feel much faster in the panel than in the editor's chat, which matches the prompt sizes.
+- **Part 5, passed on the third try.**
+  - **Try 1, as written:** the 60 000-character text was stopped after 1021 ms, with no status and no `first_ms`, and **Stopped before the first word arrived...** was shown. `hello` was then sent **in the same conversation**, so it carried the long question again (`prompt_tokens=17026 first_ms=7959`). The wait mixed the old reading with hello's own: not conclusive.
+  - **Try 2,** with **New** before `hello`: the long request received its first word after **117 ms**, because the server had already read that text in try 1 and kept it. The stop at 792 ms came while answering. `hello` (new conversation, `prompt_tokens=30`) received its first word after 268 ms.
+  - **Try 3,** with a text the server had never read (`long-text-2.txt`, 60 018 characters): the stop came after 998 ms, with no status, `code=cancelled`, and **Stopped before the first word arrived...** shown. `hello` in a new conversation started 4.1 s later: `status=200 prompt_tokens=30 first_ms=13297 ms=13456`. The owner saw **Reading the request** for 13 s, and there was no `server_busy`.
+  - A 30-token `hello` takes 0.27 s, so the 13 s are server 0.1.13 finishing the stopped reading (about 18 s in all) before taking the next request. This is the behaviour before D-100, as expected. The request was sent once and shown once.
+- **Part 6:** the test instance was quit from the Dock (`pgrep` gave `0`). The settings hash was the same as in Part 0. The normal profile still had `assistantcabinet.assistant-cabinet-coder-0.2.1` only. The three test folders were deleted and the clipboard emptied.
+- **The owner's requests on the look, after Part 1, to be made in this lot:**
+  - the model list at the **bottom**, beside the input, as in other coding chat panels;
+  - **New** and **History** stay at the **top** (validated), as icons;
+  - the input on **one line**, growing with the text;
+  - an **up-arrow** icon instead of the word **Send**;
+  - icons rather than words wherever possible, to stay sober and have fewer texts to translate.
+- **Seen by the agent, to fix:**
+  - the phase line is easy to miss (Part 3);
+  - at start and at each reconnection the extension asks for `/ide/v1/models` two or three times at the same moment (`call=models` lines with the same time);
+  - after a window reload the extension's log is a new file under a new `output_logging_<time>` folder, so every `*Cabinet*.log` must be read.
+
+### Visual check of the new look (D-029), same day
+
+The package 0.3.0 was rebuilt with the new look (31 files, 78.46 KB) and installed in a fresh test profile pointed at the stub. Walked step by step.
+
+- **Step 1, passed.**
+  - The header shows the **+** and clock icons on the right.
+  - The composer is one rounded frame: the input on one line, a thin line, the model pill `cabinet-chat` and the arrow button.
+  - The frame takes the focus colour on click.
+  - Each **Shift+Enter** grows the input by one line, and accents typed by the owner were kept.
+  - The owner: "very satisfying".
+- **Step 2, passed.**
+  - `[stub:long]` appears as the header's title, and the question sits in a framed box with no **You** above it.
+  - The words come, then a pulsing dot with **Answering (5 s)** under them; the button is a square.
+  - The square stopped it, and **Stopped.** was shown. The stub said `ms=9314 complete=false`; the log said `ms=9320 first_ms=10 code=cancelled`.
+  - There are still three `call=models` lines at start (the status bar, the panel and the editor-chat provider); see D-029.
+- **Step 3, passed.**
+  - **+** gave an empty conversation with no title.
+  - `[stub:markup]` drew as in Part 1, with the code blocks in rounded frames.
+  - The clock showed the title **History**, an arrow back instead of the clock, and both conversations, the open one highlighted.
+  - Hovering a row showed the bin on its right.
+  - Clicking `[stub:long]` opened it again with its words and **Stopped.**

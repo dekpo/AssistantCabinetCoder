@@ -9,7 +9,7 @@ import { PANEL } from "../src/messages";
 import { MAX_MESSAGE_CHARS, type ViewState } from "../src/protocol";
 import { labels, viewTurn } from "../src/session";
 import { MARKUP_TEXT } from "./stub-gateway/stub";
-import { fakeWindow, type FakeElement, type FakeWindow } from "./support/fake-dom";
+import { FakeElement, fakeWindow, type FakeWindow } from "./support/fake-dom";
 import { readText } from "./support/repo";
 
 const SCRIPT = readText("media/panel.js");
@@ -47,12 +47,10 @@ function one(page: FakeWindow, className: string): FakeElement {
   return found;
 }
 
-function button(page: FakeWindow, text: string): FakeElement {
-  const found = page.app.find(
-    (element) => element.tagName === "BUTTON" && element.textContent === text,
-  );
-  assert.ok(found !== undefined, text);
-  return found;
+/** The icon a button shows (its copy of the page's icon). */
+function iconOf(element: FakeElement): string | null {
+  const svg = element.children[0];
+  return svg instanceof FakeElement ? svg.getAttribute("data-icon") : null;
 }
 
 function assistantTurn(
@@ -83,9 +81,82 @@ describe("the webview script", () => {
       ["cabinet-chat", "cabinet-code"],
     );
     assert.equal((select.children[1] as FakeElement).selected, true);
-    assert.equal(one(page, "send").textContent, PANEL.send);
-    assert.equal(one(page, "empty").textContent, PANEL.emptyConversation);
+    assert.equal(iconOf(one(page, "send")), "send");
+    assert.equal(one(page, "send").textContent, "");
+    assert.equal(one(page, "turns").children.length, 0);
     assert.equal(one(page, "input").placeholder, PANEL.placeholder);
+    assert.equal(one(page, "input").rows, 1);
+  });
+
+  it("lays out the header's icons at the top and the model with the send button in the composer", () => {
+    const page = start();
+    page.receive({ type: "state", state: state() });
+    const header = one(page, "header");
+    assert.deepEqual(
+      header.children.map((child) => (child as FakeElement).className),
+      ["title", "icon-button new", "icon-button history-toggle"],
+    );
+    assert.equal(iconOf(one(page, "new")), "new");
+    assert.equal(iconOf(one(page, "history-toggle")), "history");
+    const composer = one(page, "composer");
+    assert.equal((composer.children[0] as FakeElement).className, "input");
+    const toolbar = composer.children[1] as FakeElement;
+    assert.deepEqual(
+      toolbar.children.map((child) => (child as FakeElement).className),
+      ["model", "spacer", "send"],
+    );
+  });
+
+  it("shows no word on its buttons: each icon has its label as tooltip and for screen readers", () => {
+    const page = start();
+    page.receive({
+      type: "state",
+      state: state({ history: [{ id: "mi9xk2ab-0123abcd", title: "first", updatedAt: 2 }] }),
+    });
+    one(page, "history-toggle").dispatch("click");
+    const expected: [string, string][] = [
+      ["send", PANEL.send],
+      ["new", PANEL.newConversation],
+      ["history-toggle", PANEL.back],
+      ["entry-delete", PANEL.delete],
+    ];
+    for (const [className, text] of expected) {
+      const element = one(page, className);
+      assert.equal(element.textContent, "", className);
+      assert.equal(element.title, text, className);
+      assert.equal(element.getAttribute("aria-label"), text, className);
+    }
+    assert.equal(one(page, "model").getAttribute("aria-label"), PANEL.model);
+  });
+
+  it("starts the input on one line, grows it with the text, and enables send only with text", () => {
+    const page = start();
+    page.receive({ type: "state", state: state() });
+    const input = one(page, "input");
+    const send = one(page, "send");
+    assert.equal(send.disabled, true);
+    input.scrollHeight = 64;
+    input.value = "first line\nsecond line";
+    input.dispatch("input");
+    assert.equal(input.style["height"], "64px");
+    assert.equal(send.disabled, false);
+    input.value = "   ";
+    input.dispatch("input");
+    assert.equal(send.disabled, true);
+  });
+
+  it("names the open conversation in the header", () => {
+    const page = start();
+    page.receive({
+      type: "state",
+      state: state({
+        conversationId: "mi9xk2ab-0123abcd",
+        history: [{ id: "mi9xk2ab-0123abcd", title: "first", updatedAt: 2 }],
+      }),
+    });
+    assert.equal(one(page, "title").textContent, "first");
+    one(page, "history-toggle").dispatch("click");
+    assert.equal(one(page, "title").textContent, PANEL.history);
   });
 
   it("shows the model's markup as text: no element is made from the answer's text", () => {
@@ -142,7 +213,7 @@ describe("the webview script", () => {
     );
   });
 
-  it("turns Send into Stop while a request is open, shows the phase, and posts stop", () => {
+  it("turns Send into Stop while a request is open, shows the phase in the answer, and posts stop", () => {
     const page = start();
     page.receive({
       type: "state",
@@ -153,9 +224,16 @@ describe("the webview script", () => {
       }),
     });
     const send = one(page, "send");
-    assert.equal(send.textContent, PANEL.stop);
-    assert.ok(one(page, "status").textContent.startsWith(`${PANEL.reading} (3 `));
-    assert.equal(button(page, PANEL.newConversation).disabled, true);
+    assert.equal(iconOf(send), "stop");
+    assert.equal(send.title, PANEL.stop);
+    assert.equal(send.disabled, false);
+    // The phase is inside the answer that is coming, where its words will appear.
+    const pending = one(page, "pending");
+    const phase = pending.byClass("phase")[0];
+    assert.ok(phase !== undefined);
+    assert.equal(phase.className, "phase reading");
+    assert.ok(one(page, "phase-text").textContent.startsWith(`${PANEL.reading} (3 `));
+    assert.equal(one(page, "new").disabled, true);
     send.dispatch("click");
     assert.deepEqual(page.posted[page.posted.length - 1], { type: "stop" });
     page.receive({
@@ -164,7 +242,8 @@ describe("the webview script", () => {
       turn: assistantTurn("word0 ", { state: "pending" }),
       phase: "answering",
     });
-    assert.ok(one(page, "status").textContent.startsWith(PANEL.answering));
+    assert.equal(one(page, "phase").className, "phase answering");
+    assert.ok(one(page, "phase-text").textContent.startsWith(PANEL.answering));
     assert.equal(one(page, "answer").textContent, "word0 ");
     page.receive({
       type: "state",
@@ -175,9 +254,9 @@ describe("the webview script", () => {
         ],
       }),
     });
-    assert.equal(one(page, "send").textContent, PANEL.send);
+    assert.equal(iconOf(one(page, "send")), "send");
     assert.equal(one(page, "note").textContent, PANEL.stoppedReading);
-    assert.equal(one(page, "status").hidden, true);
+    assert.equal(page.app.byClass("phase").length, 0);
   });
 
   it("lists the history, opens and deletes by id, and starts a new conversation", () => {
@@ -187,7 +266,8 @@ describe("the webview script", () => {
       { id: "mi9xk2ac-0123abce", title: "", updatedAt: 1 },
     ];
     page.receive({ type: "state", state: state({ history }) });
-    button(page, PANEL.history).dispatch("click");
+    one(page, "history-toggle").dispatch("click");
+    assert.equal(iconOf(one(page, "history-toggle")), "back");
     assert.equal(one(page, "history").hidden, false);
     assert.deepEqual(
       page.app.byClass("entry-title").map((element) => element.textContent),
@@ -203,7 +283,7 @@ describe("the webview script", () => {
       type: "openConversation",
       id: "mi9xk2ab-0123abcd",
     });
-    button(page, PANEL.newConversation).dispatch("click");
+    one(page, "new").dispatch("click");
     assert.deepEqual(page.posted[page.posted.length - 1], { type: "newConversation" });
   });
 
